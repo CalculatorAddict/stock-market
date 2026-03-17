@@ -4,6 +4,11 @@ from fastapi.testclient import TestClient
 
 from OrderBook.tickers import TICKERS
 
+DEFAULT_ACTOR_HEADERS = {
+    "X-Actor-User": "tapple",
+    "X-Actor-Email": "timcook@aol.com",
+}
+
 
 def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     with api_client.websocket_connect("/ws") as websocket:
@@ -31,7 +36,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
 def test_orderbook_state_persists_across_testclient_restarts(
     app_module, database_snapshot
 ):
-    with TestClient(app_module.app) as first_client:
+    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as first_client:
         response = first_client.post(
             "/api/place_order",
             json={
@@ -45,7 +50,7 @@ def test_orderbook_state_persists_across_testclient_restarts(
         assert response.status_code == 200
         order_id = response.json()
 
-    with TestClient(app_module.app) as restarted_client:
+    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as restarted_client:
         response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
 
     assert response.status_code == 200

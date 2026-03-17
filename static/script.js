@@ -327,9 +327,35 @@ function drawGraph(svgElement, data) {
     });
   }
 
+let sharedConstantsCache = null;
+
+async function getIdentityHeaderNames() {
+    if (sharedConstantsCache && sharedConstantsCache.identity_headers) {
+        return sharedConstantsCache.identity_headers;
+    }
+
+    try {
+        const response = await fetch('/app/config/shared_constants.json');
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        sharedConstantsCache = await response.json();
+    } catch (error) {
+        console.warn('Falling back to default identity headers:', error);
+        sharedConstantsCache = {
+            identity_headers: {
+                user: 'X-Actor-User',
+                email: 'X-Actor-Email'
+            }
+        };
+    }
+
+    return sharedConstantsCache.identity_headers;
+}
 
 // func for the buy and sell buttons
-function handleTrade(stock, type, stockBox) {
+async function handleTrade(stock, type, stockBox) {
+    const identityHeaders = await getIdentityHeaderNames();
     const username = stockBox.querySelector('.username-input').value.trim();
     const amountVal = stockBox.querySelector('.amount-input').value.trim();
     const limitPriceVal = stockBox.querySelector('.price-input').value.trim();
@@ -361,7 +387,10 @@ function handleTrade(stock, type, stockBox) {
     // Make the fetch call to the backend
     fetch('/api/place_order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            [identityHeaders.user]: username
+        },
         body: JSON.stringify(tradeData) // Convert the data to JSON format
     })
     .then(response => {

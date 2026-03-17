@@ -1,0 +1,63 @@
+{
+  "identity_headers": {
+    "user": "X-Actor-User",
+    "email": "X-Actor-Email"
+  },
+  "frontend": {
+    "google_client_id": "933623916878-ipovfk31uqvoidtvj5pcknkod3ggdter.apps.googleusercontent.com",
+    "websocket": {
+      "client_info_primary": "ws://localhost:8000/client_info",
+      "client_info_fallback": "ws://mtomecki.pl:8000/client_info",
+      "orderbook_primary": "ws://localhost:8000/ws",
+      "orderbook_fallback": "ws://mtomecki.pl:8000/ws"
+    }
+  },
+  "backend": {
+    "demo_clients": [
+      {
+        "username": "tapple",
+        "password": "pw",
+        "email": "timcook@aol.com",
+        "first_names": "Tim",
+        "last_name": "Cook",
+        "balance": 1000000000,
+        "portfolio": {
+          "AAPL": 1000
+        }
+      },
+      {
+        "username": "goat",
+        "password": "pw",
+        "email": "lbj@nba.com",
+        "first_names": "LeBron",
+        "last_name": "James",
+        "balance": 1000000000,
+        "portfolio": {
+          "AAPL": 1000
+        }
+      },
+      {
+        "username": "market_maker",
+        "password": "pw",
+        "email": "market_maker@gmail.com",
+        "first_names": "Market",
+        "last_name": "Maker",
+        "balance": 1000000000,
+        "portfolio": {
+          "AAPL": 1000
+        }
+      },
+      {
+        "username": "market_maker2",
+        "password": "pw",
+        "email": "market_maker2@gmail.com",
+        "first_names": "Market",
+        "last_name": "Maker2",
+        "balance": 1000000000,
+        "portfolio": {
+          "AAPL": 1000
+        }
+      }
+    ]
+  }
+}

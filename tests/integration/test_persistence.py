@@ -5,6 +5,11 @@ from fastapi.testclient import TestClient
 
 from app.persistence import ORDERBOOK_STATE_TABLE
 
+DEFAULT_ACTOR_HEADERS = {
+    "X-Actor-User": "tapple",
+    "X-Actor-Email": "timcook@aol.com",
+}
+
 
 def _fetch_persisted_rows():
     connection = sqlite3.connect("stock_market_database.db")
@@ -24,7 +29,7 @@ def _fetch_persisted_rows():
 def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_state(
     app_module,
 ):
-    with TestClient(app_module.app) as client:
+    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as client:
         response = client.post(
             "/api/place_order",
             json={
@@ -51,7 +56,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_sta
         2,
     )
 
-    with TestClient(app_module.app) as restarted_client:
+    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as restarted_client:
         response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
         assert response.status_code == 200
         assert any(
@@ -77,7 +82,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_sta
 
 
 def test_shutdown_does_not_persist_canceled_orders(app_module):
-    with TestClient(app_module.app) as client:
+    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as client:
         response = client.post(
             "/api/place_order",
             json={

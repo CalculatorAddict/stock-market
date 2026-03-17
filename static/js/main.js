@@ -4,8 +4,12 @@ import { initPortfolioView }  from './components/portfolio.js';
 import { initSearchView }     from './components/search.js';
 import { populatePortfolio } from './components/portfolio.js';
 import { portfolioPerformanceData } from './data/portfolioPerformance.js';
+import {
+  getClientInfoSocketAddresses,
+  getGoogleClientId,
+  getIdentityHeaderNames
+} from './config/sharedConstants.js';
 
-const GOOGLE_CLIENT_ID = '933623916878-ipovfk31uqvoidtvj5pcknkod3ggdter.apps.googleusercontent.com';
 export var loggedIn = false;
 
 function handleCredentialResponse(response) {
@@ -41,7 +45,7 @@ function handleCredentialResponse(response) {
   document.getElementById('google-signout').style.display = 'block';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   // —————— Navigation + Views ——————
   const navButtons = document.querySelectorAll('.nav-btn');
   const views      = document.querySelectorAll('.view');
@@ -91,9 +95,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const googleClientId = await getGoogleClientId();
+
   // —————— Google Sign-In ——————
   google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: googleClientId,
     callback: handleCredentialResponse,
   });
   google.accounts.id.renderButton(
@@ -133,7 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // —————— addClient function used when signing in ——————
-function addClient(){
+async function addClient(){
+  const identityHeaderNames = await getIdentityHeaderNames();
   const client_data = {
     email: userData.email,
     first_name: userData.name,
@@ -143,7 +150,10 @@ function addClient(){
   // API call to add client
   fetch('/api/add_new_client', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      [identityHeaderNames.email]: userData.email
+    },
     body: JSON.stringify(client_data) // Convert the data to JSON format
   })
   .then(response => {
@@ -171,7 +181,7 @@ function addClient(){
 
 let client_socket; // Declare the WebSocket variable globally
 
-function connectClientSocket(email) {
+async function connectClientSocket(email) {
     // Close the existing WebSocket connection if it exists
     if (client_socket) {
         console.log("Closing existing WebSocket connection...");
@@ -179,8 +189,9 @@ function connectClientSocket(email) {
     }
 
     // Define the primary and fallback WebSocket addresse
-    const primaryAddress = "ws://localhost:8000/client_info";
-    const fallbackAddress = "ws://mtomecki.pl:8000/client_info";
+    const addresses = await getClientInfoSocketAddresses();
+    const primaryAddress = addresses.primary;
+    const fallbackAddress = addresses.fallback;
 
     // Create a new WebSocket connection
     client_socket = new WebSocket(primaryAddress);

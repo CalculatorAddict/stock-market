@@ -28,6 +28,7 @@ def test_order_status_open(api_client):
 def test_order_status_partially_filled(api_client):
     ask_response = api_client.post(
         "/api/place_order",
+        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
         json={
             "ticker": "AAPL",
             "side": "sell",
@@ -50,7 +51,11 @@ def test_order_status_partially_filled(api_client):
     )
     assert buy_response.status_code == 200
 
-    response = api_client.get("/api/order_status", params={"order_id": ask_order_id})
+    response = api_client.get(
+        "/api/order_status",
+        params={"order_id": ask_order_id},
+        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+    )
     assert response.status_code == 200
     body = response.json()
 
@@ -76,6 +81,7 @@ def test_order_status_filled(api_client):
 
     sell_response = api_client.post(
         "/api/place_order",
+        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
         json={
             "ticker": "AAPL",
             "side": "sell",
@@ -130,3 +136,22 @@ def test_order_status_invalid_uuid_and_missing_order(api_client):
     missing = api_client.get("/api/order_status", params={"order_id": missing_uuid})
     assert missing.status_code == 404
     assert missing.json()["detail"] == f"Order {missing_uuid} does not exist."
+
+
+def test_order_status_rejects_mismatched_actor(api_client):
+    order_response = api_client.post(
+        "/api/place_order",
+        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 200.0,
+            "volume": 1,
+            "client_user": "goat",
+        },
+    )
+    goat_order_id = order_response.json()
+
+    response = api_client.get("/api/order_status", params={"order_id": goat_order_id})
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Actor username does not match target user."

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 
 from OrderBook.OrderBook import *
 from OrderBook.tickers import *
@@ -20,6 +20,7 @@ from app.schemas import (
     PublicTransaction,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
+from app.shared_constants import IDENTITY_HEADER_EMAIL, IDENTITY_HEADER_USER
 from app.validation import orderbook_error_to_http, validate_side, validate_ticker
 
 
@@ -35,7 +36,67 @@ def _serialize_public_client(client: Client) -> dict:
     }
 
 
-async def place_order(order: PlaceOrderRequest):
+def _normalize_identity(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    return normalized if normalized else None
+
+
+def _assert_actor_headers_present(
+    actor_user: str | None, actor_email: str | None
+) -> None:
+    if (
+        _normalize_identity(actor_user) is None
+        and _normalize_identity(actor_email) is None
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "Missing identity headers. "
+                f"Provide {IDENTITY_HEADER_USER} or {IDENTITY_HEADER_EMAIL}."
+            ),
+        )
+
+
+def _assert_actor_matches_client(
+    client: Client, actor_user: str | None, actor_email: str | None
+) -> None:
+    _assert_actor_headers_present(actor_user, actor_email)
+
+    normalized_user = _normalize_identity(actor_user)
+    normalized_email = _normalize_identity(actor_email)
+
+    if normalized_user is not None and normalized_user != client.username.lower():
+        raise HTTPException(
+            status_code=403, detail="Actor username does not match target user."
+        )
+
+    if normalized_email is not None and normalized_email != client.email.lower():
+        raise HTTPException(
+            status_code=403, detail="Actor email does not match target user."
+        )
+
+
+def _assert_actor_matches_email(request_email: str, actor_email: str | None) -> None:
+    normalized_actor_email = _normalize_identity(actor_email)
+    if normalized_actor_email is None:
+        raise HTTPException(
+            status_code=401,
+            detail=f"Missing identity header {IDENTITY_HEADER_EMAIL}.",
+        )
+
+    if normalized_actor_email != request_email.strip().lower():
+        raise HTTPException(
+            status_code=403, detail="Actor email does not match target user."
+        )
+
+
+async def place_order(
+    order: PlaceOrderRequest,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Place a limit order for a stock.
 
@@ -60,6 +121,7 @@ async def place_order(order: PlaceOrderRequest):
             status_code=404,
             detail=f"Client with username {order.client_user} not found.",
         )
+    _assert_actor_matches_client(client, x_actor_user, x_actor_email)
 
     ticker = validate_ticker(ticker)
     side = validate_side(side)
@@ -82,7 +144,11 @@ async def place_order(order: PlaceOrderRequest):
         orderbook_error_to_http(e)
 
 
-async def market_order(order: MarketOrderRequest):
+async def market_order(
+    order: MarketOrderRequest,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Place a market order for a stock.
 
@@ -105,6 +171,7 @@ async def market_order(order: MarketOrderRequest):
             status_code=404,
             detail=f"Client with username {order.client_user} not found.",
         )
+    _assert_actor_matches_client(client, x_actor_user, x_actor_email)
 
     ticker = validate_ticker(ticker)
     side = validate_side(side)
@@ -125,7 +192,11 @@ async def market_order(order: MarketOrderRequest):
         orderbook_error_to_http(e)
 
 
-async def cancel_order(request: CancelOrderRequest):
+async def cancel_order(
+    request: CancelOrderRequest,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Cancel an order for a stock.
 
@@ -140,8 +211,10 @@ async def cancel_order(request: CancelOrderRequest):
     if order_id < 0:
         raise HTTPException(status_code=400, detail="Order id must be non-negative.")
 
-    if Order.get_order_by_id(order_id) is None:
+    order = Order.get_order_by_id(order_id)
+    if order is None:
         raise HTTPException(status_code=404, detail=f"Order {order_id} does not exist.")
+    _assert_actor_matches_client(order.client, x_actor_user, x_actor_email)
 
     print(f"Cancelling order {order_id}")
     try:
@@ -156,7 +229,11 @@ async def cancel_order(request: CancelOrderRequest):
     }
 
 
-async def edit_order(request: EditOrderRequest):
+async def edit_order(
+    request: EditOrderRequest,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Edit an existing order for a stock.
 
@@ -183,8 +260,10 @@ async def edit_order(request: EditOrderRequest):
             status_code=400, detail="Order volume must be greater than zero."
         )
 
-    if Order.get_order_by_id(order_id) is None:
+    order = Order.get_order_by_id(order_id)
+    if order is None:
         raise HTTPException(status_code=404, detail=f"Order {order_id} does not exist.")
+    _assert_actor_matches_client(order.client, x_actor_user, x_actor_email)
 
     print(f"Editing order {order_id}: new price {price}, new volume {volume}")
     try:
@@ -369,7 +448,11 @@ async def get_transactions(ticker: str, limit: int = 20):
     return transactions
 
 
-async def get_order_status(order_id: str | int):
+async def get_order_status(
+    order_id: str | int,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     internal_order_id = to_internal_order_id(order_id)
     if internal_order_id < 0:
         raise HTTPException(status_code=400, detail="Order id must be non-negative.")
@@ -379,6 +462,7 @@ async def get_order_status(order_id: str | int):
         raise HTTPException(
             status_code=404, detail=f"Order {internal_order_id} does not exist."
         )
+    _assert_actor_matches_client(order.client, x_actor_user, x_actor_email)
 
     executed_volume = order.get_executed_volume()
     remaining_volume = order.get_volume()
@@ -403,7 +487,10 @@ async def get_order_status(order_id: str | int):
     }
 
 
-async def get_client_by_email(email: str):
+async def get_client_by_email(
+    email: str,
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Used to get a client from the backend by its email.
 
@@ -414,6 +501,7 @@ async def get_client_by_email(email: str):
     - The object of the client if it exists or None otherwise.
     """
 
+    _assert_actor_matches_email(email, x_actor_email)
     print(f"Getting information for client with email {email}")
     client = Client.get_client_by_email(email)
     if client is None:
@@ -425,7 +513,10 @@ async def get_client_by_email(email: str):
 
 # need to add a proper username and a proper password.
 # need to add stock for every ticker !!!!
-async def add_new_client(client_data: ClientData):
+async def add_new_client(
+    client_data: ClientData,
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
     """
     Used to get information of a client based on its email. If it doesn not exist, create a new client
 
@@ -435,6 +526,7 @@ async def add_new_client(client_data: ClientData):
     Returns:
     - The object of the client
     """
+    _assert_actor_matches_email(client_data.email, x_actor_email)
     queryClient = Client.get_client_by_email(client_data.email)
 
     if queryClient != None:

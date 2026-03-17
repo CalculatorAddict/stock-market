@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.persistence import persist_orderbook_state, restore_orderbook_state
+from app.shared_constants import DEMO_CLIENTS
 
 # Initialize order books
 order_books = [OrderBook(ticker) for ticker in TICKERS]
@@ -61,33 +62,24 @@ def _ensure_demo_client(
     return Client(username, password, email, first_names, last_name, balance=balance)
 
 
-client1 = _ensure_demo_client(
-    "tapple", "pw", "timcook@aol.com", "Tim", "Cook", balance=1_000_000_000
-)
-client2 = _ensure_demo_client(
-    "goat", "pw", "lbj@nba.com", "LeBron", "James", balance=1_000_000_000
-)
-bot = _ensure_demo_client(
-    "market_maker",
-    "pw",
-    "market_maker@gmail.com",
-    "Market",
-    "Maker",
-    balance=1_000_000_000,
-)
-bot2 = _ensure_demo_client(
-    "market_maker2",
-    "pw",
-    "market_maker2@gmail.com",
-    "Market",
-    "Maker2",
-    balance=1_000_000_000,
-)
+demo_clients_by_username = {}
+for demo_client in DEMO_CLIENTS:
+    client = _ensure_demo_client(
+        demo_client["username"],
+        demo_client.get("password", "pw"),
+        demo_client["email"],
+        demo_client.get("first_names", ""),
+        demo_client.get("last_name", ""),
+        balance=demo_client.get("balance", 0),
+    )
+    for ticker, volume in demo_client.get("portfolio", {}).items():
+        client.portfolio[ticker] = volume
+    demo_clients_by_username[client.username] = client
 
-client1.portfolio["AAPL"] = 1000
-client2.portfolio["AAPL"] = 1000
-bot.portfolio["AAPL"] = 1000
-bot2.portfolio["AAPL"] = 1000
+client1 = demo_clients_by_username.get("tapple")
+client2 = demo_clients_by_username.get("goat")
+bot = demo_clients_by_username.get("market_maker")
+bot2 = demo_clients_by_username.get("market_maker2")
 # client1.buy_stock(0, 0, 100)
 
 # print(Client.get_client_by_id(0))

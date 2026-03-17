@@ -4,6 +4,7 @@ from uuid import UUID
 def test_add_new_client_returns_public_uuid_client_id(api_client):
     response = api_client.post(
         "/api/add_new_client",
+        headers={"X-Actor-Email": "uuid-client@example.com"},
         json={
             "email": "uuid-client@example.com",
             "first_name": "Uuid",
@@ -22,6 +23,7 @@ def test_add_new_client_returns_public_uuid_client_id(api_client):
 def test_get_client_by_email_returns_public_payload(api_client):
     create_response = api_client.post(
         "/api/add_new_client",
+        headers={"X-Actor-Email": "lookup-client@example.com"},
         json={
             "email": "lookup-client@example.com",
             "first_name": "Lookup",
@@ -31,7 +33,9 @@ def test_get_client_by_email_returns_public_payload(api_client):
     created = create_response.json()
 
     response = api_client.get(
-        "/api/get_client_by_email", params={"email": "lookup-client@example.com"}
+        "/api/get_client_by_email",
+        params={"email": "lookup-client@example.com"},
+        headers={"X-Actor-Email": "lookup-client@example.com"},
     )
     assert response.status_code == 200
 
@@ -44,9 +48,21 @@ def test_get_client_by_email_returns_public_payload(api_client):
 
 def test_get_client_by_email_missing_returns_404(api_client):
     response = api_client.get(
-        "/api/get_client_by_email", params={"email": "missing@example.com"}
+        "/api/get_client_by_email",
+        params={"email": "missing@example.com"},
+        headers={"X-Actor-Email": "missing@example.com"},
     )
     assert response.status_code == 404
     assert (
         response.json()["detail"] == "Client with email missing@example.com not found."
     )
+
+
+def test_get_client_by_email_rejects_mismatched_actor_email(api_client):
+    response = api_client.get(
+        "/api/get_client_by_email",
+        params={"email": "lookup-client@example.com"},
+        headers={"X-Actor-Email": "other@example.com"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Actor email does not match target user."

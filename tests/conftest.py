@@ -116,7 +116,13 @@ def app_module(reset_domain_state):
 
 @pytest.fixture
 def api_client(app_module):
-    with TestClient(app_module.app) as client:
+    with TestClient(
+        app_module.app,
+        headers={
+            "X-Actor-User": "tapple",
+            "X-Actor-Email": "timcook@aol.com",
+        },
+    ) as client:
         yield client
 
 

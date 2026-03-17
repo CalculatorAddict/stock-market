@@ -5,6 +5,10 @@ import { drawDetailedGraph } from './graph.js';              // to draw the stoc
 import { populateOrderBook } from './orderBook.js';          // to render order book
 import { loggedIn } from '../main.js';                       // login flag
 import { userData } from '../data/userData.js';              // current user info
+import {
+  getIdentityHeaderNames,
+  getOrderbookSocketAddresses
+} from '../config/sharedConstants.js';
 
 // Opens a modal showing detailed info & order form for a given stock
 export function openStockDetail(stockName) {
@@ -126,7 +130,7 @@ export function openStockDetail(stockName) {
 }
 
 // Handles sending the order to the backend API
-function handleOrder(stockName, orderType, modal) {
+async function handleOrder(stockName, orderType, modal) {
   if (!loggedIn) {
     alert("You must be signed in before placing any order!");
     return;
@@ -138,6 +142,7 @@ function handleOrder(stockName, orderType, modal) {
 
   const isLimit = orderType.startsWith('limit');
   const isBuy = orderType.endsWith('_buy');
+  const identityHeaderNames = await getIdentityHeaderNames();
 
   if (!amountVal || Number(amountVal) <= 0) {
     alert("Amount must be greater than 0!");
@@ -163,7 +168,11 @@ function handleOrder(stockName, orderType, modal) {
 
     fetch('/api/place_order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email
+      },
       body: JSON.stringify(tradeData)
     })
       .then(res => {
@@ -191,7 +200,11 @@ function handleOrder(stockName, orderType, modal) {
 
     fetch('/api/market_order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email
+      },
       body: JSON.stringify(tradeData)
     })
       .then(res => {
@@ -210,34 +223,13 @@ function handleOrder(stockName, orderType, modal) {
 }
 
 // WebSocket for live order book updates
-const primarySocketAddress = "ws://localhost:8000/ws";
-const fallbackSocketAddress = "ws://mtomecki.pl:8000/ws";
-let socket = new WebSocket(primarySocketAddress);
+let socket = null;
 const stockDataDynamic = {};
 
-socket.addEventListener("open", () => {
-  console.log(`Connected to OrderBook WebSocket`);
-});
-
-socket.addEventListener("error", (error) => {
-  console.error(`Failed to connect to ${primarySocketAddress}:`, error);
-  console.log("Attempting to connect to fallback WebSocket address...");
-
-  // Try connecting to the fallback address
-  socket = new WebSocket(fallbackSocketAddress);
-
-    socket.addEventListener("open", () => {
-      console.log(`Connected to OrderBook WebSocket`);
-  });
-    socket.addEventListener("error", (error) => {
-    console.error(`Failed to connect to ${fallbackSocketAddress}:`, error);
-    console("Unable to connect to the WebSocket server. Please try again later.");
-});
-});
-
-socket.addEventListener("message", event => {
+function bindOrderbookSocketMessageHandler(activeSocket) {
+  activeSocket.addEventListener("message", event => {
   const data = JSON.parse(event.data);
-  let tickers = ['AAPL', 'GOOG', 'TSLA'];
+  const tickers = Object.keys(data || {});
   console.log("Data from OrderBook socket", data);
   tickers.forEach(ticker => {
     stockDataDynamic[ticker] = data[ticker];
@@ -257,8 +249,43 @@ socket.addEventListener("message", event => {
       populateOrderBook(bookContainer, stockDataDynamic[ticker]);
     }
   });
-});
+  });
+}
 
-socket.addEventListener("close", () => {
-  console.log("OrderBook WebSocket connection closed");
-});
+async function connectOrderbookSocket() {
+  const addresses = await getOrderbookSocketAddresses();
+  const primarySocketAddress = addresses.primary;
+  const fallbackSocketAddress = addresses.fallback;
+
+  socket = new WebSocket(primarySocketAddress);
+  bindOrderbookSocketMessageHandler(socket);
+
+  socket.addEventListener("open", () => {
+    console.log(`Connected to OrderBook WebSocket`);
+  });
+
+  socket.addEventListener("error", (error) => {
+    console.error(`Failed to connect to ${primarySocketAddress}:`, error);
+    console.log("Attempting to connect to fallback WebSocket address...");
+
+    socket = new WebSocket(fallbackSocketAddress);
+    bindOrderbookSocketMessageHandler(socket);
+
+    socket.addEventListener("open", () => {
+      console.log(`Connected to OrderBook WebSocket`);
+    });
+    socket.addEventListener("error", (fallbackError) => {
+      console.error(`Failed to connect to ${fallbackSocketAddress}:`, fallbackError);
+      console.log("Unable to connect to the WebSocket server. Please try again later.");
+    });
+    socket.addEventListener("close", () => {
+      console.log("OrderBook WebSocket connection closed");
+    });
+  });
+
+  socket.addEventListener("close", () => {
+    console.log("OrderBook WebSocket connection closed");
+  });
+}
+
+connectOrderbookSocket();
