@@ -52,7 +52,7 @@ class _NoDbTransaction:
 
 def test_partial_fill_updates_remaining_order_volume(monkeypatch):
     book, buyer, seller = _build_book_with_clients()
-    monkeypatch.setattr("OrderBook.OrderBook.Transaction", _NoDbTransaction)
+    monkeypatch.setattr("engine.matching_engine.Transaction", _NoDbTransaction)
 
     sell_id = book._place_order(SELL_SIDE, 101.0, 10, seller, is_market=False)
     buy_id = book._place_order(BUY_SIDE, 102.0, 4, buyer, is_market=False)
@@ -177,7 +177,7 @@ def test_note_13_existing_orders_reconcile_when_matchability_changes():
 
 def test_buyer_partial_fill_then_zero_balance_cancels_remaining_order(monkeypatch):
     book = OrderBook("AAPL")
-    monkeypatch.setattr("OrderBook.OrderBook.Transaction", _NoDbTransaction)
+    monkeypatch.setattr("engine.matching_engine.Transaction", _NoDbTransaction)
 
     buyer = Client("limited_buyer", "pw", "limited@example.com", "Limited", "Buyer", 10)
     seller = Client("liquid_seller", "pw", "seller@example.com", "Liquid", "Seller", 0)

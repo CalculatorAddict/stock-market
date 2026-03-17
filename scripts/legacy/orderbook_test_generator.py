@@ -1,10 +1,10 @@
-from OrderBook.OrderBook import *
+from engine.order_book import *
 import random
 import string
 
 """
 To keep in mind when generating test cases:
-classes from OrderBook.py:
+classes from engine/order_book.py:
 BuyOrSell - just Enum class, used in the side of the order
 Client - user + password + email + first name + last name + balance = 0 + portofolio = None
 Order - stock_id + side + price + volume + client_id + (total_volume + transaction_ids)

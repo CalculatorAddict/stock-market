@@ -28,7 +28,8 @@ FastAPI-based stock market simulator with:
 - `app/api.py`: REST endpoint handlers and route registration
 - `app/websocket_routes.py`: websocket handlers
 - `app/persistence.py`: orderbook state restore/persist
-- `OrderBook/`: matching engine and domain model
+- `engine/`: order book data structure and matching engine
+- `models/`: domain models (`Client`, `Order`, `Transaction`, enums)
 - `TradingBot/`: websocket-driven market-making bot
 - `tests/`: pytest suite (`api/`, `integration/`, `unit/`)
 - `scripts/smoke_demo.sh`: quick end-to-end local smoke run
@@ -184,6 +185,6 @@ Bot behavior:
 
 ## Configuration
 
-- Tickers and opening prices: `OrderBook/tickers.py`
+- Tickers and opening prices: `engine/tickers.py`
 - Shared frontend/backend runtime constants: `static/config/shared_constants.json`
 - Backend constant loader: `app/shared_constants.py`

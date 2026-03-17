@@ -1,7 +1,8 @@
-from OrderBook.OrderBook import *
+from engine.order_book import *
 from scripts.legacy.orderbook_test_generator import generateTest
 import argparse
 from datetime import datetime, timezone
+from pathlib import Path
 
 """
 After each operation I will output a table with all the information about the clients, followed by the transaction lists from the order book.
@@ -11,9 +12,9 @@ This works as a "debugger".
 
 
 def write_clients(clients, fileName):
-    f = open(
-        f"OrderBook/TestLog/{fileName}", "a"
-    )  # assume it is run from the stock-market folder
+    log_dir = Path("scripts/legacy/TestLog")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    f = open(log_dir / fileName, "a")
 
     f.write("Clients:\n")
 
@@ -28,9 +29,9 @@ def write_clients(clients, fileName):
 def write_list(orderBook, fileName, last_order=None):
     asks = orderBook._get_all_asks()
     bids = orderBook._get_all_bids()
-    f = open(
-        f"OrderBook/TestLog/{fileName}", "a"
-    )  # assume it is run from the stock-market folder
+    log_dir = Path("scripts/legacy/TestLog")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    f = open(log_dir / fileName, "a")
 
     if last_order is not None:
         if last_order.side == BuyOrSell.BUY:
