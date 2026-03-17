@@ -1,4 +1,5 @@
 from engine.order_book import *
+from engine.matching_engine import MatchingEngine
 
 
 def printClientInfo(client):
@@ -35,10 +36,10 @@ client3 = Client(
 client1.portfolio["JPK"] = 500
 client2.portfolio["JPK"] = 500
 
-ob._place_order(SELL, 150, 10, client1)  # order_id = 0
-ob._place_order(BUY, 150, 10, client1)  # order_id = 1
+MatchingEngine.place_order(ob, SELL, 150, 10, client1, is_market=False)  # order_id = 0
+MatchingEngine.place_order(ob, BUY, 150, 10, client1, is_market=False)  # order_id = 1
 
 print(ob._get_volume_at_price(SELL, 150))
 print(ob._get_best())
 
-print(ob._edit_order(Order.get_order_by_id(0), 200, 10))  # order_id = 0
+print(MatchingEngine.edit_order(ob, Order.get_order_by_id(0), 200, 10))  # order_id = 0

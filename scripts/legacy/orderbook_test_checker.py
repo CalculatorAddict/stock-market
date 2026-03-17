@@ -1,4 +1,5 @@
 from engine.order_book import *
+from engine.matching_engine import MatchingEngine
 from scripts.legacy.orderbook_test_generator import generateTest
 import argparse
 from datetime import datetime, timezone
@@ -62,10 +63,14 @@ def run_OrderBook(clients, orders, tickers):
     write_clients(clients, fileName)
     for order in orders:
         if order.side == BuyOrSell.BUY:
-            ob._place_order(BUY, order.price, order.volume, order.client)
+            MatchingEngine.place_order(
+                ob, BUY, order.price, order.volume, order.client, is_market=False
+            )
 
         else:
-            ob._place_order(SELL, order.price, order.volume, order.client)
+            MatchingEngine.place_order(
+                ob, SELL, order.price, order.volume, order.client, is_market=False
+            )
 
         write_list(ob, fileName, order)
         write_clients(clients, fileName)

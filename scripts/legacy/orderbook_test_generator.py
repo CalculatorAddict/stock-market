@@ -83,7 +83,7 @@ def generateOrder(tickers, num_clients):
     # !!!! come back to ensure that these are feasible values
     price = random.randint(1, 1000)  # Random price between 1 and 1000
     volume = random.randint(1, 100)  # Random volume between 1 and 100
-    return Order(stock_id, side, price, volume, client_id)
+    return Order(stock_id, tickers[stock_id], side, price, volume, client_id)
 
 
 def generateOrders(num_orders, tickers, num_clients):
