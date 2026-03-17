@@ -163,6 +163,7 @@ def test_note_13_existing_orders_reconcile_when_matchability_changes():
     assert ask_order.volume == 3
 
     buyer.add_funds(1000)
+    OrderBook.match_orders_by_ticker("AAPL")
 
     assert bid_order.volume == 0
     assert ask_order.volume == 0
