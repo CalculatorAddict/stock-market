@@ -17,11 +17,11 @@ class MarketOrderRequest(BaseModel):
 
 
 class CancelOrderRequest(BaseModel):
-    order_id: int
+    order_id: str | int
 
 
 class EditOrderRequest(BaseModel):
-    order_id: int
+    order_id: str | int
     price: float
     volume: int
 

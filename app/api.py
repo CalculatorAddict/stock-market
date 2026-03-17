@@ -13,7 +13,20 @@ from app.schemas import (
     PlaceOrderRequest,
     PublicTransaction,
 )
+from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
 from app.validation import orderbook_error_to_http, validate_side, validate_ticker
+
+
+def _serialize_public_client(client: Client) -> dict:
+    return {
+        "client_id": to_public_client_id(client.client_id),
+        "username": client.username,
+        "email": client.email,
+        "first_name": client.first_names,
+        "last_name": client.last_name,
+        "balance": client.balance,
+        "portfolio": client.portfolio,
+    }
 
 
 async def place_order(order: PlaceOrderRequest):
@@ -57,7 +70,8 @@ async def place_order(order: PlaceOrderRequest):
     print(f"Placing order for stock {ticker}: {side} at {price} for {volume} shares")
     order_side = BUY if side.lower() == "buy" else SELL
     try:
-        return OrderBook.place_order(ticker, order_side, price, volume, client)
+        order_id = OrderBook.place_order(ticker, order_side, price, volume, client)
+        return to_public_order_id(order_id)
     except Exception as e:
         orderbook_error_to_http(e)
 
@@ -99,7 +113,8 @@ async def market_order(order: MarketOrderRequest):
     )
     order_side = BUY if side.lower() == "buy" else SELL
     try:
-        return OrderBook.market_order(ticker, order_side, volume, client)
+        order_id = OrderBook.market_order(ticker, order_side, volume, client)
+        return to_public_order_id(order_id)
     except Exception as e:
         orderbook_error_to_http(e)
 
@@ -115,7 +130,7 @@ async def cancel_order(request: CancelOrderRequest):
     - success message if successful, or an error message.
     """
 
-    order_id = request.order_id
+    order_id = to_internal_order_id(request.order_id)
     if order_id < 0:
         raise HTTPException(status_code=400, detail="Order id must be non-negative.")
 
@@ -128,7 +143,11 @@ async def cancel_order(request: CancelOrderRequest):
     except Exception as e:
         orderbook_error_to_http(e)
 
-    return {"status": "success", "order_id": order_id, "message": response}
+    return {
+        "status": "success",
+        "order_id": to_public_order_id(order_id),
+        "message": response,
+    }
 
 
 async def edit_order(request: EditOrderRequest):
@@ -143,7 +162,7 @@ async def edit_order(request: EditOrderRequest):
     Returns:
     - success message if successful, or an error message.
     """
-    order_id = request.order_id
+    order_id = to_internal_order_id(request.order_id)
     if order_id < 0:
         raise HTTPException(status_code=400, detail="Order id must be non-negative.")
 
@@ -169,7 +188,7 @@ async def edit_order(request: EditOrderRequest):
 
     return {
         "status": "success",
-        "order_id": order_id,
+        "order_id": to_public_order_id(order_id),
         "message": message,
         "delta_volume": diff,
     }
@@ -263,7 +282,7 @@ async def get_all_asks(ticker: str):
     print(all_asks)
     return [
         {
-            "order_id": order_id,
+            "order_id": to_public_order_id(order_id),
             "timestamp": timestamp,
             "price": price,
             "volume": volume,
@@ -290,7 +309,7 @@ async def get_all_bids(ticker: str):
     print(all_bids)
     return [
         {
-            "order_id": order_id,
+            "order_id": to_public_order_id(order_id),
             "timestamp": timestamp,
             "price": price,
             "volume": volume,
@@ -357,8 +376,11 @@ async def get_client_by_email(email: str):
 
     print(f"Getting information for client with email {email}")
     client = Client.get_client_by_email(email)
-    print(client)
-    return client
+    if client is None:
+        raise HTTPException(
+            status_code=404, detail=f"Client with email {email} not found."
+        )
+    return _serialize_public_client(client)
 
 
 # need to add a proper username and a proper password.
@@ -376,7 +398,7 @@ async def add_new_client(client_data: ClientData):
     queryClient = Client.get_client_by_email(client_data.email)
 
     if queryClient != None:
-        return queryClient
+        return _serialize_public_client(queryClient)
     else:
         if Database().is_email_taken(client_data.email):
             details = Database().account_from_email(client_data.email)
@@ -412,7 +434,7 @@ async def add_new_client(client_data: ClientData):
             )
             for stock, volume in new_user.stocks.items():
                 Database().create_owned_stock(id, stock, volume)
-        return client
+        return _serialize_public_client(client)
 
 
 def register_api_routes(app: FastAPI) -> None:

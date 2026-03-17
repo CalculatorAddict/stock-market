@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi.testclient import TestClient
 
 
@@ -13,7 +15,9 @@ def test_place_order_happy_path(api_client: TestClient):
         },
     )
     assert response.status_code == 200
-    assert isinstance(response.json(), int)
+    order_id = response.json()
+    assert isinstance(order_id, str)
+    assert str(UUID(order_id)) == order_id
 
 
 def test_place_order_invalid_ticker(api_client: TestClient):
