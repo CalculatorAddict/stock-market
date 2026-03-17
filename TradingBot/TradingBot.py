@@ -14,12 +14,18 @@ class TradingBot:
     def __init__(
         self,
         client_user: str = "market_maker",
+        client_email: str | None = None,
         api_url: str = "http://localhost:8000/api/place_order",
         websocket_url: str = "ws://localhost:8000/ws",
+        actor_user_header: str = "X-Actor-User",
+        actor_email_header: str = "X-Actor-Email",
     ):
         self.client_user = client_user
+        self.client_email = client_email
         self.api_url = api_url
         self.websocket_url = websocket_url
+        self.actor_user_header = actor_user_header
+        self.actor_email_header = actor_email_header
         self.running = True
         self.ticker_states = defaultdict(
             lambda: {
@@ -168,10 +174,15 @@ class TradingBot:
             "volume": volume,
             "client_user": self.client_user,
         }
+        headers = {
+            self.actor_user_header: self.client_user,
+        }
+        if self.client_email:
+            headers[self.actor_email_header] = self.client_email
 
         def send_request():
             try:
-                response = requests.post(self.api_url, json=payload)
+                response = requests.post(self.api_url, json=payload, headers=headers)
                 if response.status_code == 200:
                     state = self.ticker_states[ticker]
                     pnl = 0
