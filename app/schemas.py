@@ -48,6 +48,18 @@ class PublicClientResponse(BaseModel):
     portfolio: dict[str, float]
 
 
+class DemoAccount(BaseModel):
+    username: str
+    email: str
+
+
+class DemoResponse(BaseModel):
+    title: str
+    description: str
+    default_ticker: str
+    accounts: list[DemoAccount]
+
+
 class CancelOrderResponse(BaseModel):
     status: str
     order_id: str

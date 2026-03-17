@@ -17,6 +17,13 @@ DEFAULT_SHARED_CONSTANTS = {
         },
     },
     "backend": {
+        "demo": {
+            "title": "Demo access",
+            "description": (
+                "Use these demo users to place sample orders in the local environment."
+            ),
+            "default_ticker": "AAPL",
+        },
         "demo_clients": [
             {
                 "username": "tapple",
@@ -54,7 +61,7 @@ DEFAULT_SHARED_CONSTANTS = {
                 "balance": 1_000_000_000,
                 "portfolio": {"AAPL": 1000},
             },
-        ]
+        ],
     },
 }
 
@@ -121,4 +128,9 @@ ORDERBOOK_WS_FALLBACK = (
 DEMO_CLIENTS = SHARED_CONSTANTS.get("backend", {}).get(
     "demo_clients",
     DEFAULT_SHARED_CONSTANTS["backend"]["demo_clients"],
+)
+
+DEMO_API_INFO = SHARED_CONSTANTS.get("backend", {}).get(
+    "demo",
+    DEFAULT_SHARED_CONSTANTS["backend"]["demo"],
 )

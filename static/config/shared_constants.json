@@ -13,6 +13,11 @@
     }
   },
   "backend": {
+    "demo": {
+      "title": "Demo access",
+      "description": "Use these demo users to place sample orders in the local environment.",
+      "default_ticker": "AAPL"
+    },
     "demo_clients": [
       {
         "username": "tapple",

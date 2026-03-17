@@ -13,6 +13,7 @@ from app.schemas import (
     ClientData,
     EditOrderRequest,
     EditOrderResponse,
+    DemoResponse,
     MarketOrderRequest,
     OrderBookLevel,
     OrderIdResponse,
@@ -23,7 +24,12 @@ from app.schemas import (
     VolumeAtPriceResponse,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
-from app.shared_constants import IDENTITY_HEADER_EMAIL, IDENTITY_HEADER_USER
+from app.shared_constants import (
+    DEMO_API_INFO,
+    DEMO_CLIENTS,
+    IDENTITY_HEADER_EMAIL,
+    IDENTITY_HEADER_USER,
+)
 from app.validation import orderbook_error_to_http, validate_side, validate_ticker
 
 
@@ -451,6 +457,27 @@ async def get_transactions(ticker: str, limit: int = 20):
     return transactions
 
 
+async def get_demo() -> dict:
+    demo_accounts = []
+    for demo_client in DEMO_CLIENTS:
+        username = demo_client.get("username")
+        email = demo_client.get("email")
+        if username and email:
+            demo_accounts.append({"username": username, "email": email})
+
+    return {
+        "title": str(DEMO_API_INFO.get("title", "Demo access")),
+        "description": str(
+            DEMO_API_INFO.get(
+                "description",
+                "Use the listed demo users for local testing.",
+            )
+        ),
+        "default_ticker": str(DEMO_API_INFO.get("default_ticker", "AAPL")),
+        "accounts": demo_accounts,
+    }
+
+
 async def get_order_status(
     order_id: str | int,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
@@ -589,6 +616,7 @@ def register_api_routes(app: FastAPI) -> None:
     app.get("/api/transactions", response_model=list[PublicTransaction])(
         get_transactions
     )
+    app.get("/api/demo", response_model=DemoResponse)(get_demo)
     app.get("/api/get_client_by_email", response_model=PublicClientResponse)(
         get_client_by_email
     )
