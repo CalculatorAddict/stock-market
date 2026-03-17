@@ -1,4 +1,6 @@
 import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,13 +10,28 @@ from OrderBook.tickers import *
 from datetime import datetime, timedelta
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
-from app.persistence import (
-    persist_orderbook_state,
-    restore_orderbook_state,
-)
+from app.persistence import persist_orderbook_state, restore_orderbook_state
+
+# Initialize order books
+order_books = [OrderBook(ticker) for ticker in TICKERS]
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    restore_orderbook_state()
+    hourly_task = asyncio.create_task(update_hourly_stock_data())
+    daily_task = asyncio.create_task(update_daily_portfolio_value())
+    try:
+        yield
+    finally:
+        persist_orderbook_state()
+        hourly_task.cancel()
+        daily_task.cancel()
+        await asyncio.gather(hourly_task, daily_task, return_exceptions=True)
+
 
 # Initialize the app
-app = FastAPI(title="Stock Market")
+app = FastAPI(title="Stock Market", lifespan=lifespan)
 register_websocket_routes(app)
 register_api_routes(app)
 
@@ -26,9 +43,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize order books
-order_books = [OrderBook(ticker) for ticker in TICKERS]
 
 
 def _ensure_demo_client(
@@ -112,18 +126,6 @@ async def update_daily_portfolio_value():
         sleep_seconds = (next_day - now).total_seconds()
         await asyncio.sleep(sleep_seconds)
         Client.update_all_daily_portfolio()
-
-
-@app.on_event("startup")
-async def startup_event():
-    restore_orderbook_state()
-    asyncio.create_task(update_hourly_stock_data())
-    asyncio.create_task(update_daily_portfolio_value())
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    persist_orderbook_state()
 
 
 # # *** Code for AR(1) price model

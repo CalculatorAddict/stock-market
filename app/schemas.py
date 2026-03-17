@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, RootModel
 
 
 class PlaceOrderRequest(BaseModel):
@@ -16,6 +18,10 @@ class MarketOrderRequest(BaseModel):
     client_user: str
 
 
+class OrderIdResponse(RootModel[str]):
+    pass
+
+
 class CancelOrderRequest(BaseModel):
     order_id: str | int
 
@@ -30,6 +36,37 @@ class ClientData(BaseModel):
     email: str
     first_name: str
     last_name: str
+
+
+class PublicClientResponse(BaseModel):
+    client_id: str
+    username: str
+    email: str
+    first_name: str
+    last_name: str
+    balance: float
+    portfolio: dict[str, float]
+
+
+class CancelOrderResponse(BaseModel):
+    status: str
+    order_id: str
+    message: str
+
+
+class EditOrderResponse(BaseModel):
+    status: str
+    order_id: str
+    message: str
+    delta_volume: int
+
+
+class OrderBookLevel(BaseModel):
+    order_id: str
+    timestamp: datetime
+    price: float
+    volume: int
+    stock_id: int
 
 
 class PublicTransaction(BaseModel):

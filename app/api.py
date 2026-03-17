@@ -6,12 +6,17 @@ from database import Database
 import new_user_portfolio as new_user
 
 from app.schemas import (
+    CancelOrderResponse,
     CancelOrderRequest,
     ClientData,
     EditOrderRequest,
+    EditOrderResponse,
     MarketOrderRequest,
+    OrderBookLevel,
+    OrderIdResponse,
     OrderStatusResponse,
     PlaceOrderRequest,
+    PublicClientResponse,
     PublicTransaction,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
@@ -473,19 +478,21 @@ async def add_new_client(client_data: ClientData):
 
 
 def register_api_routes(app: FastAPI) -> None:
-    app.post("/api/place_order")(place_order)
-    app.post("/api/market_order")(market_order)
-    app.post("/api/cancel_order")(cancel_order)
-    app.post("/api/edit_order")(edit_order)
+    app.post("/api/place_order", response_model=OrderIdResponse)(place_order)
+    app.post("/api/market_order", response_model=OrderIdResponse)(market_order)
+    app.post("/api/cancel_order", response_model=CancelOrderResponse)(cancel_order)
+    app.post("/api/edit_order", response_model=EditOrderResponse)(edit_order)
     app.get("/api/get_best_bid")(get_best_bid)
     app.get("/api/get_best_ask")(get_best_ask)
     app.get("/api/get_best")(get_best)
     app.get("/api/get_volume_at_price")(get_volume_at_price)
-    app.get("/api/get_all_asks")(get_all_asks)
-    app.get("/api/get_all_bids")(get_all_bids)
+    app.get("/api/get_all_asks", response_model=list[OrderBookLevel])(get_all_asks)
+    app.get("/api/get_all_bids", response_model=list[OrderBookLevel])(get_all_bids)
     app.get("/api/order_status", response_model=OrderStatusResponse)(get_order_status)
     app.get("/api/transactions", response_model=list[PublicTransaction])(
         get_transactions
     )
-    app.get("/api/get_client_by_email")(get_client_by_email)
-    app.post("/api/add_new_client")(add_new_client)
+    app.get("/api/get_client_by_email", response_model=PublicClientResponse)(
+        get_client_by_email
+    )
+    app.post("/api/add_new_client", response_model=PublicClientResponse)(add_new_client)
