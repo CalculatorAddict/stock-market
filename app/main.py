@@ -8,6 +8,10 @@ from OrderBook.tickers import *
 from datetime import datetime, timedelta
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
+from app.persistence import (
+    persist_orderbook_state,
+    restore_orderbook_state,
+)
 
 # Initialize the app
 app = FastAPI(title="Stock Market")
@@ -79,6 +83,7 @@ bot2.portfolio["AAPL"] = 1000
 # Serve static files from the "static" folder at root ("/")
 app.mount("/app", StaticFiles(directory="static", html=True), name="static")
 
+
 # asyncio.create_task(price_feed_loop())
 
 # Redirect root ("/") to the static files
@@ -111,8 +116,14 @@ async def update_daily_portfolio_value():
 
 @app.on_event("startup")
 async def startup_event():
+    restore_orderbook_state()
     asyncio.create_task(update_hourly_stock_data())
     asyncio.create_task(update_daily_portfolio_value())
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    persist_orderbook_state()
 
 
 # # *** Code for AR(1) price model
