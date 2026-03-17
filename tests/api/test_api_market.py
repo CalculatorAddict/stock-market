@@ -4,13 +4,97 @@ from fastapi.testclient import TestClient
 
 
 def test_get_best_success(api_client: TestClient):
+    bid_1 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 100.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    bid_2 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 101.5,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    ask_1 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 104.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    ask_2 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 103.0,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+
+    assert bid_1.status_code == 200
+    assert bid_2.status_code == 200
+    assert ask_1.status_code == 200
+    assert ask_2.status_code == 200
+
     response = api_client.get("/api/get_best", params={"ticker": "AAPL"})
 
     assert response.status_code == 200
     body = response.json()
     assert set(body.keys()) == {"best_bid", "best_ask"}
-    assert body["best_bid"] == 0
-    assert body["best_ask"] == 0
+    assert body["best_bid"] == 101.5
+    assert body["best_ask"] == 103.0
+
+
+def test_get_best_bid_success(api_client: TestClient):
+    response_place = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 120.25,
+            "volume": 3,
+            "client_user": "tapple",
+        },
+    )
+    assert response_place.status_code == 200
+
+    response = api_client.get("/api/get_best_bid", params={"ticker": "AAPL"})
+
+    assert response.status_code == 200
+    assert response.json() == 120.25
+
+
+def test_get_best_ask_success(api_client: TestClient):
+    response_place = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 130.75,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    assert response_place.status_code == 200
+
+    response = api_client.get("/api/get_best_ask", params={"ticker": "AAPL"})
+
+    assert response.status_code == 200
+    assert response.json() == 130.75
 
 
 def test_get_best_invalid_ticker(api_client: TestClient):

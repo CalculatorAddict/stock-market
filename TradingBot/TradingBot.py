@@ -129,7 +129,8 @@ class TradingBot:
         last_price = data["last_price"]
         state = self.ticker_states[ticker]
 
-        if best_bid == 0 and best_ask == 0:
+        # Empty books now surface as None (legacy deployments may still send 0).
+        if best_bid in (None, 0) and best_ask in (None, 0):
             print(f"\nInitialising market for {ticker}")
             reference = last_price if last_price > 0 else 100.0
             initial_spread = self.min_spread

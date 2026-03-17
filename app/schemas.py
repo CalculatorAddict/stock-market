@@ -81,7 +81,7 @@ class OrderBookLevel(BaseModel):
     stock_id: int
 
 
-class BestPriceResponse(RootModel[float]):
+class BestPriceResponse(RootModel[float | None]):
     pass
 
 
@@ -90,8 +90,8 @@ class VolumeAtPriceResponse(RootModel[int]):
 
 
 class BestBidAskResponse(BaseModel):
-    best_bid: float
-    best_ask: float
+    best_bid: float | None
+    best_ask: float | None
 
 
 class PublicTransaction(BaseModel):

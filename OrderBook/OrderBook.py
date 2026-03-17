@@ -870,30 +870,30 @@ class OrderBook:
 
         return stock._remove_order(order, cancelling=True)
 
-    def _get_best_bid(self) -> float:
+    def _get_best_bid(self) -> float | None:
         """Returns highest bid price."""
-        return self.bids[0].get_price() if self.bids else 0
+        return self.bids[0].get_price() if self.bids else None
 
-    def _get_best_ask(self) -> float:
+    def _get_best_ask(self) -> float | None:
         """Returns lowest ask price."""
-        return self.asks[0].get_price() if self.asks else 0
+        return self.asks[0].get_price() if self.asks else None
 
-    def _get_best(self) -> tuple[float, float]:
+    def _get_best(self) -> tuple[float | None, float | None]:
         """Returns tuple with (highest bid, lowest ask)."""
         return (self._get_best_bid(), self._get_best_ask())
 
     @staticmethod
-    def get_best_bid(ticker: str) -> float:
+    def get_best_bid(ticker: str) -> float | None:
         stock = OrderBook.get_book_by_ticker(ticker)
         return stock._get_best_bid()
 
     @staticmethod
-    def get_best_ask(ticker: str) -> float:
+    def get_best_ask(ticker: str) -> float | None:
         stock = OrderBook.get_book_by_ticker(ticker)
         return stock._get_best_ask()
 
     @staticmethod
-    def get_best(ticker: str) -> tuple[float, float]:
+    def get_best(ticker: str) -> tuple[float | None, float | None]:
         stock = OrderBook.get_book_by_ticker(ticker)
         return stock._get_best()
 

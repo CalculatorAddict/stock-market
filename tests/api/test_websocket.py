@@ -11,6 +11,51 @@ DEFAULT_ACTOR_HEADERS = {
 
 
 def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
+    bid_1 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 200.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    bid_2 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 201.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    ask_1 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 203.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    ask_2 = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 202.0,
+            "volume": 1,
+            "client_user": "tapple",
+        },
+    )
+    assert bid_1.status_code == 200
+    assert bid_2.status_code == 200
+    assert ask_1.status_code == 200
+    assert ask_2.status_code == 200
+
     with api_client.websocket_connect("/ws") as websocket:
         payload = json.loads(websocket.receive_text())
 
@@ -19,8 +64,8 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     assert aapl_snapshot["ticker"] == "AAPL"
     assert isinstance(aapl_snapshot["all_bids"], list)
     assert isinstance(aapl_snapshot["all_asks"], list)
-    assert isinstance(aapl_snapshot["best_bid"], (int, float))
-    assert isinstance(aapl_snapshot["best_ask"], (int, float))
+    assert aapl_snapshot["best_bid"] == 201.0
+    assert aapl_snapshot["best_ask"] == 202.0
     assert set(aapl_snapshot.keys()) == {
         "ticker",
         "best_bid",

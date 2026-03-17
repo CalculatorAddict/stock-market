@@ -12,11 +12,11 @@ def _build_book_with_clients(ticker="AAPL"):
     return book, buyer, seller
 
 
-def test_empty_book_best_is_zero():
+def test_empty_book_best_is_none():
     book, _, _ = _build_book_with_clients()
 
-    assert book._get_best() == (0, 0)
-    assert OrderBook.get_best("AAPL") == (0, 0)
+    assert book._get_best() == (None, None)
+    assert OrderBook.get_best("AAPL") == (None, None)
 
 
 def test_matching_engine_keeps_multiple_orders_at_same_price_aggregated():
@@ -60,7 +60,7 @@ def test_partial_fill_updates_remaining_order_volume(monkeypatch):
 
     assert ask_order.get_volume() == 6
     assert bid_order.volume == 0
-    assert OrderBook.get_best("AAPL") == (0, 101.0)
+    assert OrderBook.get_best("AAPL") == (None, 101.0)
     assert book.last_price == 101.0
     assert ask_order.terminated is False
 

@@ -21,7 +21,7 @@ def mock_market_data():
 
 @pytest.fixture
 def mock_empty_market():
-    return {"best_bid": 0, "best_ask": 0, "last_price": 100.0}
+    return {"best_bid": None, "best_ask": None, "last_price": 100.0}
 
 
 def test_initialization(bot):
