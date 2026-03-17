@@ -129,6 +129,9 @@ class Client:
         else:
             self.portfolio[ticker] += vol
 
+        if not OrderBook._matching_in_progress:
+            OrderBook.match_orders_by_ticker(ticker)
+
     def sell_stock(self, stock_id: int, price: float, vol: int):
         # add money to balance
         self.balance += price * vol
@@ -148,6 +151,36 @@ class Client:
             self.portfolio[ticker] -= vol
             if self.portfolio[ticker] == 0:  # if stock is no longer held
                 del self.portfolio[ticker]  # remove from portfolio
+
+        if not OrderBook._matching_in_progress:
+            OrderBook.match_orders_by_ticker(ticker)
+
+    def add_stock_to_portfolio(self, stock_id: int, vol: int):
+        """Increase a client's tracked portfolio size from external action and reconcile matches."""
+        if vol <= 0:
+            raise ValueError("Must add a positive amount")
+
+        ticker = OrderBook.get_ticker_by_id(stock_id)
+        if not ticker:
+            raise ValueError("Stock does not exist")
+
+        if ticker not in self.portfolio:
+            self.portfolio[ticker] = vol
+        else:
+            self.portfolio[ticker] += vol
+
+        if not OrderBook._matching_in_progress:
+            OrderBook.match_orders_by_ticker(ticker)
+
+    def add_funds(self, amount: float):
+        """Increase a client's cash balance and reconcile matches across all books."""
+        if amount <= 0:
+            raise ValueError("Must add a positive amount")
+
+        self.balance += amount
+
+        if not OrderBook._matching_in_progress:
+            OrderBook.match_orders_by_ticker()
 
     def display_portfolio(self) -> str:
         res = f"Portfolio of {str(self)}:"
@@ -510,6 +543,7 @@ Usage:
 
 class OrderBook:
     counter = 0
+    _matching_in_progress = False
     _all_books: list[Self] = []
     _tickers: dict[str, Self] = {}
 
@@ -563,45 +597,120 @@ class OrderBook:
 
         return cls._tickers[ticker]
 
-    def _execute_trades_between(self, order: Order, opposite_book: SortedList):
+    def _execute_trades_between(
+        self, order: Order, opposite_book: SortedList, order_in_book: bool = False
+    ):
         """Executes all possible trades between a given order and the opposite book."""
-        while order.is_executable() and opposite_book:
-            other_order: Order = opposite_book[0]
-            trade_price = other_order.get_price()
+        previous_matching_state = OrderBook._matching_in_progress
+        OrderBook._matching_in_progress = True
+        try:
+            while order.is_executable() and opposite_book:
+                other_order: Order | None = self._find_matching_order(
+                    order, opposite_book
+                )
 
-            # if other orders was made by the same person, then skip it
+                if other_order is None:
+                    break
+
+                trade_price = other_order.get_price()
+
+                # if order is limit and all trades at feasible prices have been executed, no more trades are executable
+                if order.type == LIMIT:
+                    if order.side == SELL and trade_price < order.get_price():
+                        break
+                    elif order.side == BUY and trade_price > order.get_price():
+                        break
+
+                # if order is executable, but has 0 volume, no more trades would be currently feasible
+                if order.executable_volume(trade_price) == 0:
+                    break
+
+                trade_volume = min(
+                    order.executable_volume(trade_price),
+                    other_order.executable_volume(trade_price),
+                )
+
+                if order.side == BUY:
+                    Transaction(order, other_order, trade_volume)
+                else:  # order.side == SELL
+                    Transaction(other_order, order, trade_volume)
+
+                if other_order.get_volume() == 0:
+                    self._remove_order(other_order, cancelling=False)
+
+            if order_in_book and order.terminated:
+                self._remove_order(order, cancelling=False)
+        finally:
+            OrderBook._matching_in_progress = previous_matching_state
+
+    def _find_matching_order(
+        self, order: Order, opposite_book: SortedList
+    ) -> Order | None:
+        for other_order in list(opposite_book):
             if other_order.client == order.client:
                 continue
 
-            # if order is limit and all trades at feasible prices have been executed, no more trades are executable
-            if order.type == LIMIT:
-                if order.side == SELL and trade_price < order.get_price():
-                    break
-                elif order.side == BUY and trade_price > order.get_price():
-                    break
-
-            # if order is executable, but has 0 volume, no more trades would be currently feasible
-            if order.executable_volume(trade_price) == 0:
-                break
-
-            # if the other order can't trade at this price, skip it
             if not other_order.is_executable():
                 self._remove_order(other_order, cancelling=True)
                 continue
 
-            # otherwise, a positive number of shares can be traded
-            trade_volume = min(
-                order.executable_volume(trade_price),
-                other_order.executable_volume(trade_price),
-            )
+            trade_price = other_order.get_price()
+            if order.type == LIMIT:
+                if order.side == SELL and trade_price < order.get_price():
+                    return None
+                elif order.side == BUY and trade_price > order.get_price():
+                    return None
 
-            if order.side == BUY:
-                Transaction(order, other_order, trade_volume)
-            else:  # order.side == SELL
-                Transaction(other_order, order, trade_volume)
+            return other_order
 
-            if other_order.get_volume() == 0:
-                opposite_book.remove(other_order)
+        return None
+
+    def match_orders(self):
+        """
+        Match all executable resting orders in this book until no additional
+        matches can be made without new orderbook input.
+        """
+        orderbook_advanced = True
+        while orderbook_advanced:
+            orderbook_advanced = False
+
+            for order in list(self.bids):
+                if order.terminated:
+                    continue
+                old_volume = order.volume
+                self._execute_trades_between(order, self.asks, order_in_book=True)
+                if order.volume != old_volume:
+                    orderbook_advanced = True
+                    break
+
+            if orderbook_advanced:
+                continue
+
+            for order in list(self.asks):
+                if order.terminated:
+                    continue
+                old_volume = order.volume
+                self._execute_trades_between(order, self.bids, order_in_book=True)
+                if order.volume != old_volume:
+                    orderbook_advanced = True
+                    break
+
+    @staticmethod
+    def match_orders_by_ticker(ticker: str = None):
+        """Match all executable orders for a given ticker, or all tickers if None."""
+        if OrderBook._matching_in_progress:
+            return
+
+        previous_matching_state = OrderBook._matching_in_progress
+        OrderBook._matching_in_progress = True
+        try:
+            if ticker is None:
+                for book in OrderBook._all_books:
+                    book.match_orders()
+            else:
+                OrderBook.get_book_by_ticker(ticker).match_orders()
+        finally:
+            OrderBook._matching_in_progress = previous_matching_state
 
     # object as parameter, NOT IDs
     def _add_order(self, order: Order):
