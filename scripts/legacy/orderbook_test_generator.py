@@ -1,4 +1,4 @@
-from .OrderBook import *
+from OrderBook.OrderBook import *
 import random
 import string
 

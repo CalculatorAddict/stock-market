@@ -1,10 +1,10 @@
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
-import asyncio
-from TradingBot.TradingBot import TradingBot
+from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime, timedelta
 from websockets import ConnectionClosedOK
 from websockets.frames import Close
-from datetime import datetime, timedelta
+
+from TradingBot.TradingBot import TradingBot
 
 
 @pytest.fixture
@@ -30,14 +30,12 @@ def test_initialization(bot):
     assert bot.volatility_window == 20
     assert bot.min_trade_interval == 1
     assert bot.min_spread == 0.01
-    assert bot.running == True
+    assert bot.running is True
 
 
 def test_volatility_calculation(bot):
-    # Empty price history
     assert bot.volatility("AAPL") == 0.1
 
-    # Existing price history
     bot.ticker_states["AAPL"]["price_history"] = [100, 101, 99, 102, 100]
     volatility = bot.volatility("AAPL")
     assert isinstance(volatility, float)
@@ -52,20 +50,18 @@ async def test_market_make_initialization(bot, mock_empty_market):
     await bot.market_make("AAPL", mock_empty_market)
     assert mock_place_order.call_count == 2
 
-    # Get the actual call arguments
     calls = mock_place_order.call_args_list
-    assert calls[0][0][0] == "AAPL"  # ticker
-    assert calls[0][0][1] == "buy"  # side
-    assert calls[0][0][3] == bot.base_size  # volume
+    assert calls[0].args[0] == "AAPL"
+    assert calls[0].args[1] == "buy"
+    assert calls[0].args[3] == bot.base_size
 
-    assert calls[1][0][0] == "AAPL"  # ticker
-    assert calls[1][0][1] == "sell"  # side
-    assert calls[1][0][3] == bot.base_size  # volume
+    assert calls[1].args[0] == "AAPL"
+    assert calls[1].args[1] == "sell"
+    assert calls[1].args[3] == bot.base_size
 
 
 @pytest.mark.asyncio
 async def test_market_make_normal(bot, mock_market_data):
-    # Set up initial state
     bot.ticker_states["AAPL"]["inventory"] = 0
     bot.ticker_states["AAPL"]["last_trade_time"] = datetime.now() - timedelta(seconds=2)
 
@@ -85,12 +81,13 @@ async def test_place_order(bot):
         mock_post.return_value = mock_response
 
         await bot.place_order("AAPL", "buy", 150.0, 50)
-        state = bot.ticker_states["AAPL"]
-        assert state["inventory"] == 50
-        assert len(state["trades"]) == 1
-        assert state["trades"][0]["side"] == "buy"
-        assert state["trades"][0]["price"] == 150.0
-        assert state["trades"][0]["volume"] == 50
+
+    state = bot.ticker_states["AAPL"]
+    assert state["inventory"] == 50
+    assert len(state["trades"]) == 1
+    assert state["trades"][0]["side"] == "buy"
+    assert state["trades"][0]["price"] == 150.0
+    assert state["trades"][0]["volume"] == 50
 
 
 def test_handle_shutdown(bot):
@@ -140,7 +137,3 @@ async def test_listen_orderbook(bot):
         "AAPL",
         {"best_bid": 150.0, "best_ask": 151.0, "last_price": 150.5},
     )
-
-
-if __name__ == "__main__":
-    pytest.main(["-v"])

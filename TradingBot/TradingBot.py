@@ -84,9 +84,9 @@ class TradingBot:
         plt.xticks(rotation=45)
         plt.tight_layout()
 
-        plot_path = os.path.join(os.path.dirname(__file__), "trading_performance.png")
-        plt.savefig(plot_path)
-        print(f"\nPlot saved to: {plot_path}")
+        # plot_path = os.path.join(os.path.dirname(__file__), "trading_performance.png")
+        # plt.savefig(plot_path)
+        # print(f"\nPlot saved to: {plot_path}")
 
         sys.exit(0)
 

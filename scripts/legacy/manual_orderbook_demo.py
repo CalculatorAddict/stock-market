@@ -1,4 +1,4 @@
-from OrderBook import *
+from OrderBook.OrderBook import *
 
 
 def printClientInfo(client):
@@ -35,8 +35,8 @@ client3 = Client(
 client1.portfolio["JPK"] = 500
 client2.portfolio["JPK"] = 500
 
-ob._place_order(SELL, 150, 10, client1.get_id())  # order_id = 0
-ob._place_order(BUY, 150, 10, client1.get_id())  # order_id = 1
+ob._place_order(SELL, 150, 10, client1)  # order_id = 0
+ob._place_order(BUY, 150, 10, client1)  # order_id = 1
 
 print(ob._get_volume_at_price(SELL, 150))
 print(ob._get_best())

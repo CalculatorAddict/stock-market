@@ -1,5 +1,5 @@
-from .OrderBook import *
-from testGenerator import generateTest
+from OrderBook.OrderBook import *
+from scripts.legacy.orderbook_test_generator import generateTest
 import argparse
 from datetime import datetime, timezone
 
@@ -26,8 +26,8 @@ def write_clients(clients, fileName):
 
 
 def write_list(orderBook, fileName, last_order=None):
-    asks = orderBook.export_asks()
-    bids = orderBook.get_all_bids()
+    asks = orderBook._get_all_asks()
+    bids = orderBook._get_all_bids()
     f = open(
         f"OrderBook/TestLog/{fileName}", "a"
     )  # assume it is run from the stock-market folder
@@ -61,10 +61,10 @@ def run_OrderBook(clients, orders, tickers):
     write_clients(clients, fileName)
     for order in orders:
         if order.side == BuyOrSell.BUY:
-            ob._place_order(BUY, order.price, order.volume, order.client.get_id())
+            ob._place_order(BUY, order.price, order.volume, order.client)
 
         else:
-            ob._place_order(SELL, order.price, order.volume, order.client.get_id())
+            ob._place_order(SELL, order.price, order.volume, order.client)
 
         write_list(ob, fileName, order)
         write_clients(clients, fileName)
