@@ -11,9 +11,15 @@ import os
 
 
 class TradingBot:
-    def __init__(self, client_user: str = "market_maker"):
+    def __init__(
+        self,
+        client_user: str = "market_maker",
+        api_url: str = "http://localhost:8000/api/place_order",
+        websocket_url: str = "ws://localhost:8000/ws",
+    ):
         self.client_user = client_user
-        self.api_url = "http://localhost:8000/api/place_order"
+        self.api_url = api_url
+        self.websocket_url = websocket_url
         self.running = True
         self.ticker_states = defaultdict(
             lambda: {
@@ -95,7 +101,7 @@ class TradingBot:
         print("\n")
 
     async def listen_orderbook(self):
-        uri = "ws://localhost:8000/ws"
+        uri = self.websocket_url
         async with websockets.connect(uri) as websocket:
             while self.running:
                 try:

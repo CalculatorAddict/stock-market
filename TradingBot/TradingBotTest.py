@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import asyncio
 from TradingBot.TradingBot import TradingBot
 from websockets import ConnectionClosedOK
+from websockets.frames import Close
 from datetime import datetime, timedelta
 
 
@@ -126,7 +127,8 @@ async def test_listen_orderbook(bot):
 
     mock_ws = AsyncMock()
     mock_ws.__aenter__.return_value = mock_ws
-    mock_ws.recv.side_effect = [msg, ConnectionClosedOK(1000, "done")]
+    close = Close(1000, "done")
+    mock_ws.recv.side_effect = [msg, ConnectionClosedOK(close, close, False)]
 
     mock_market_make = AsyncMock()
     bot.market_make = mock_market_make
