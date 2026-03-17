@@ -30,3 +30,10 @@ class ClientData(BaseModel):
     email: str
     first_name: str
     last_name: str
+
+
+class PublicTransaction(BaseModel):
+    ticker: str
+    price: float
+    volume: int
+    timestamp: str

@@ -16,6 +16,7 @@ from app.schemas import (
     EditOrderRequest,
     MarketOrderRequest,
     PlaceOrderRequest,
+    PublicTransaction,
 )
 from app.validation import orderbook_error_to_http, validate_side, validate_ticker
 
@@ -34,12 +35,30 @@ app.add_middleware(
 # Initialize order books
 order_books = [OrderBook(ticker) for ticker in TICKERS]
 
-# Two example users
-client1 = Client(
+
+def _ensure_demo_client(
+    username: str,
+    password: str,
+    email: str,
+    first_names: str,
+    last_name: str,
+    balance: int,
+) -> Client:
+    existing = Client.get_client_by_username(username)
+    if existing is not None:
+        existing.balance = max(existing.balance, balance)
+        return existing
+
+    return Client(username, password, email, first_names, last_name, balance=balance)
+
+
+client1 = _ensure_demo_client(
     "tapple", "pw", "timcook@aol.com", "Tim", "Cook", balance=1_000_000_000
 )
-client2 = Client("goat", "pw", "lbj@nba.com", "LeBron", "James", balance=1_000_000_000)
-bot = Client(
+client2 = _ensure_demo_client(
+    "goat", "pw", "lbj@nba.com", "LeBron", "James", balance=1_000_000_000
+)
+bot = _ensure_demo_client(
     "market_maker",
     "pw",
     "market_maker@gmail.com",
@@ -47,7 +66,7 @@ bot = Client(
     "Maker",
     balance=1_000_000_000,
 )
-bot2 = Client(
+bot2 = _ensure_demo_client(
     "market_maker2",
     "pw",
     "market_maker2@gmail.com",
@@ -370,6 +389,52 @@ async def get_all_bids(ticker: str):
         }
         for order_id, timestamp, price, volume, stock_id in all_bids
     ]
+
+
+@app.get("/api/transactions", response_model=list[PublicTransaction])
+async def get_transactions(ticker: str, limit: int = 20):
+    """
+    Get recent transactions for a stock.
+
+    Parameters:
+    - ticker: The ticker to query.
+    - limit: Maximum number of transactions to return (most recent first). Defaults to 20.
+    - limit: Maximum number of transactions to return (most recent first). Defaults to 20.
+
+    Returns an anonymized transaction stream with only public fields.
+    """
+    if limit <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be a positive integer.",
+        )
+
+    ticker = validate_ticker(ticker)
+    rows = Database().retrieve_transactions_stock(ticker)
+    rows = sorted(rows, key=lambda row: row[0], reverse=True)[:limit]
+
+    transactions = []
+    for (
+        _transaction_id,
+        _bidder_id,
+        _bid_price,
+        _asker_id,
+        _ask_price,
+        volume,
+        ticker_value,
+        _timestamp,
+        transaction_price,
+    ) in rows:
+        transactions.append(
+            {
+                "ticker": ticker_value,
+                "price": transaction_price,
+                "volume": volume,
+                "timestamp": _timestamp,
+            }
+        )
+
+    return transactions
 
 
 @app.get("/api/get_client_by_email")
