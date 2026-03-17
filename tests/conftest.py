@@ -80,7 +80,8 @@ def reset_domain_state(monkeypatch: pytest.MonkeyPatch, test_db_path: Path):
     Order.counter = 0
 
     Client._all_clients.clear()
-    Client._usernames.clear()
+    Client._clients_by_username.clear()
+    Client._clients_by_email.clear()
     Client.counter = 0
     PortfolioValue.clear_daily_values()
 
@@ -112,7 +113,8 @@ def app_module(reset_domain_state):
     Order.counter = 0
 
     Client._all_clients.clear()
-    Client._usernames.clear()
+    Client._clients_by_username.clear()
+    Client._clients_by_email.clear()
     Client.counter = 0
     PortfolioValue.clear_daily_values()
 

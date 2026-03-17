@@ -5,8 +5,9 @@ from typing import Self
 
 class Client:
     counter = 0
-    _all_clients: list[Self] = []
-    _usernames = set[str]()
+    _all_clients: dict[int, Self] = {}
+    _clients_by_username: dict[str, Self] = {}
+    _clients_by_email: dict[str, Self] = {}
 
     def __init__(
         self,
@@ -18,14 +19,13 @@ class Client:
         balance: float = 0,
         portfolio: dict[str, float] = None,
     ):
-        self.client_id = Client.counter
-        Client.counter += 1
-        Client._all_clients += [self]
-        if username in Client._usernames:
+        if username in Client._clients_by_username:
             raise ValueError(f"Username {username} is not available")
 
+        self.client_id = Client.counter
+        Client.counter += 1
+
         self.username = username
-        Client._usernames.add(username)
         self.password = password
         self.email = email
         self.first_names = first_names
@@ -34,29 +34,24 @@ class Client:
         self.balance = balance
         self.portfolio = portfolio if portfolio is not None else {}
 
+        Client._all_clients[self.client_id] = self
+        Client._clients_by_username[self.username] = self
+        Client._clients_by_email[self.email] = self
+
     def __str__(self):
         return f"{self.first_names} {self.last_name} ({self.username})"
 
     @classmethod
     def get_client_by_id(cls, id: int):
-        try:
-            return cls._all_clients[id]
-        except:
-            return None
+        return cls._all_clients.get(id)
 
     @classmethod
     def get_client_by_username(cls, username: str) -> Self:
-        for client in cls._all_clients:
-            if client.username == username:
-                return client
-        return None
+        return cls._clients_by_username.get(username)
 
     @classmethod
     def get_client_by_email(cls, email: str) -> Self:
-        for client in cls._all_clients:
-            if client.email == email:
-                return client
-        return None
+        return cls._clients_by_email.get(email)
 
     @classmethod
     def resolve(cls, client_info) -> Self:

@@ -10,8 +10,7 @@ from database import Database
 
 
 class Transaction:
-    _all_transactions: list[Self] = []
-    _transaction_offset = -10
+    _all_transactions: dict[int, Self] = {}
 
     # object as parameter, NOT IDs
     def __init__(self, bid: Order, ask: Order, vol: int, transaction_id: int):
@@ -39,10 +38,7 @@ class Transaction:
         self.ticker = ticker
 
         self.transaction_id = transaction_id
-        # If first transaction in the system
-        if Transaction._all_transactions == []:
-            Transaction._transaction_offset = self.transaction_id
-        Transaction._all_transactions += [self]
+        Transaction._all_transactions[self.transaction_id] = self
 
         # log transaction
         print(self)
@@ -55,18 +51,14 @@ class Transaction:
 
     @classmethod
     def get_transaction_by_id(cls, id: int) -> Self:
-        # print(id, Transaction._transaction_offset)
-        try:
-            return cls._all_transactions[id - Transaction._transaction_offset]
-        except:
-            return None
+        return cls._all_transactions.get(id)
 
     @classmethod
     def get_all_transactions(cls) -> dict[int, tuple[datetime, float, int, int]]:
         """Returns all transactions as a dictionary { transaction_id -> (timestamp, price, volume, stock_id) }."""
         return {
-            t.transaction_id: (t.timestamp, t.price, t.vol, t.stock_id)
-            for t in cls._all_transactions
+            tid: (t.timestamp, t.price, t.vol, t.stock_id)
+            for tid, t in cls._all_transactions.items()
         }
 
     @classmethod

@@ -13,15 +13,15 @@ from models.transaction import Transaction
 
 class OrderBook:
     counter = 0
-    _all_books: list[Self] = []
+    _all_books: dict[int, Self] = {}
     _tickers: dict[str, Self] = {}
 
     def __init__(self, ticker: str):
         self.stock_id: int = OrderBook.counter
         OrderBook.counter += 1
-        OrderBook._all_books += [self]
+        OrderBook._all_books[self.stock_id] = self
         if not ticker:
-            ticker = "" + self.stock_id
+            ticker = str(self.stock_id)
         self.ticker = ticker
         OrderBook._tickers[ticker] = self
         self.bids = SortedList(key=lambda o: (-o.price, o.timestamp))
@@ -43,14 +43,11 @@ class OrderBook:
     @classmethod
     def get_all_books(cls) -> dict:
         """Returns all order books as a dict { stock_id -> ticker }"""
-        return {id: cls._all_books[id].ticker for id in range(len(cls._all_books))}
+        return {book_id: book.ticker for book_id, book in cls._all_books.items()}
 
     @classmethod
     def get_book_by_id(cls, id: int) -> Self:
-        try:
-            return cls._all_books[id]
-        except:
-            return None
+        return cls._all_books.get(id)
 
     @classmethod
     def get_ticker_by_id(cls, id: int) -> str:
@@ -183,5 +180,5 @@ class OrderBook:
 
     @staticmethod
     def update_all_last_times(date: datetime):
-        for book in OrderBook._all_books:
+        for book in OrderBook._all_books.values():
             book.last_timestamp = date

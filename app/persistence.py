@@ -54,13 +54,13 @@ def restore_orderbook_state() -> None:
         """
     ).fetchall()
 
-    for book in OrderBook._all_books:
+    for book in OrderBook._all_books.values():
         book.bids.clear()
         book.asks.clear()
 
     if rows:
         max_order_id = max(row[0] for row in rows)
-        Order._all_orders = [None] * (max_order_id + 1)
+        Order._all_orders = {}
         Order.counter = max_order_id + 1
 
         for row in rows:
@@ -112,7 +112,7 @@ def restore_orderbook_state() -> None:
             else:
                 book.asks.add(order)
     else:
-        Order._all_orders = []
+        Order._all_orders = {}
         Order.counter = 0
 
     cursor.execute(f"DELETE FROM {ORDERBOOK_STATE_TABLE}")
@@ -126,7 +126,7 @@ def persist_orderbook_state() -> None:
     ensure_orderbook_state_table(cursor)
     cursor.execute(f"DELETE FROM {ORDERBOOK_STATE_TABLE}")
 
-    for book in OrderBook._all_books:
+    for book in OrderBook._all_books.values():
         for order in book.bids:
             if order.terminated or order.volume <= 0 or order.type is not LIMIT:
                 continue

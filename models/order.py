@@ -9,7 +9,7 @@ from models.enums import LIMIT, MARKET, BuyOrSell
 
 class Order:
     counter = 0
-    _all_orders: list[Self] = []
+    _all_orders: dict[int, Self] = {}
 
     def __init__(
         self,
@@ -23,7 +23,7 @@ class Order:
     ):
         self.order_id = Order.counter
         Order.counter += 1
-        Order._all_orders += [self]
+        Order._all_orders[self.order_id] = self
 
         self.timestamp = datetime.now(timezone.utc)
         self.stock_id = stock_id
@@ -45,10 +45,7 @@ class Order:
 
     @classmethod
     def get_order_by_id(cls, id: int) -> Self:
-        try:
-            return cls._all_orders[id]
-        except:
-            return None
+        return cls._all_orders.get(id)
 
     def get_id(self) -> int:
         return self.order_id

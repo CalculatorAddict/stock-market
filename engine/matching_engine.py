@@ -318,7 +318,7 @@ class MatchingEngine:
         from engine.order_book import OrderBook
 
         if ticker is None:
-            for book in OrderBook._all_books:
+            for book in OrderBook._all_books.values():
                 cls.match(book)
             return
 

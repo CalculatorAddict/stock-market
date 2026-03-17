@@ -45,7 +45,7 @@ class PortfolioValue:
     @classmethod
     def update_all_daily_values(cls) -> None:
         """Refreshes daily baseline values for all clients."""
-        for client in Client._all_clients:
+        for client in Client._all_clients.values():
             cls.update_daily_value(client)
 
     @classmethod

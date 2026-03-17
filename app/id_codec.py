@@ -25,9 +25,7 @@ def to_internal_order_id(order_id: str | int) -> int:
             detail="Invalid order id format. Must be a UUID string.",
         ) from exc
 
-    for internal_id, order in enumerate(Order._all_orders):
-        if order is None:
-            continue
+    for internal_id, order in Order._all_orders.items():
         if uuid.uuid5(ORDER_ID_NAMESPACE, f"order:{internal_id}") == target:
             return internal_id
 
