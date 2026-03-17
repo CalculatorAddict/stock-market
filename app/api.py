@@ -10,6 +10,7 @@ from app.schemas import (
     ClientData,
     EditOrderRequest,
     MarketOrderRequest,
+    OrderStatusResponse,
     PlaceOrderRequest,
     PublicTransaction,
 )
@@ -363,6 +364,40 @@ async def get_transactions(ticker: str, limit: int = 20):
     return transactions
 
 
+async def get_order_status(order_id: str | int):
+    internal_order_id = to_internal_order_id(order_id)
+    if internal_order_id < 0:
+        raise HTTPException(status_code=400, detail="Order id must be non-negative.")
+
+    order = Order.get_order_by_id(internal_order_id)
+    if order is None:
+        raise HTTPException(
+            status_code=404, detail=f"Order {internal_order_id} does not exist."
+        )
+
+    executed_volume = order.get_executed_volume()
+    remaining_volume = order.get_volume()
+    total_volume = order.get_total_volume()
+
+    if order.terminated:
+        status = "filled" if remaining_volume == 0 else "canceled"
+    else:
+        status = "partially_filled" if executed_volume > 0 else "open"
+
+    return {
+        "order_id": to_public_order_id(internal_order_id),
+        "ticker": order.ticker,
+        "side": order.side.value,
+        "order_type": order.type.value,
+        "price": order.price,
+        "total_volume": total_volume,
+        "executed_volume": executed_volume,
+        "remaining_volume": remaining_volume,
+        "terminated": order.terminated,
+        "status": status,
+    }
+
+
 async def get_client_by_email(email: str):
     """
     Used to get a client from the backend by its email.
@@ -448,6 +483,7 @@ def register_api_routes(app: FastAPI) -> None:
     app.get("/api/get_volume_at_price")(get_volume_at_price)
     app.get("/api/get_all_asks")(get_all_asks)
     app.get("/api/get_all_bids")(get_all_bids)
+    app.get("/api/order_status", response_model=OrderStatusResponse)(get_order_status)
     app.get("/api/transactions", response_model=list[PublicTransaction])(
         get_transactions
     )

@@ -1,0 +1,132 @@
+import uuid
+
+
+def test_order_status_open(api_client):
+    order_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 210.0,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    order_id = order_response.json()
+
+    response = api_client.get("/api/order_status", params={"order_id": order_id})
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["order_id"] == order_id
+    assert body["status"] == "open"
+    assert body["executed_volume"] == 0
+    assert body["remaining_volume"] == 2
+    assert body["terminated"] is False
+
+
+def test_order_status_partially_filled(api_client):
+    ask_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 100.0,
+            "volume": 5,
+            "client_user": "goat",
+        },
+    )
+    ask_order_id = ask_response.json()
+
+    buy_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 100.0,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    assert buy_response.status_code == 200
+
+    response = api_client.get("/api/order_status", params={"order_id": ask_order_id})
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["status"] == "partially_filled"
+    assert body["total_volume"] == 5
+    assert body["executed_volume"] == 2
+    assert body["remaining_volume"] == 3
+    assert body["terminated"] is False
+
+
+def test_order_status_filled(api_client):
+    buy_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 120.0,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    buy_order_id = buy_response.json()
+
+    sell_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 120.0,
+            "volume": 2,
+            "client_user": "goat",
+        },
+    )
+    assert sell_response.status_code == 200
+
+    response = api_client.get("/api/order_status", params={"order_id": buy_order_id})
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["status"] == "filled"
+    assert body["executed_volume"] == 2
+    assert body["remaining_volume"] == 0
+    assert body["terminated"] is True
+
+
+def test_order_status_canceled(api_client):
+    order_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 130.0,
+            "volume": 2,
+            "client_user": "tapple",
+        },
+    )
+    order_id = order_response.json()
+
+    cancel_response = api_client.post("/api/cancel_order", json={"order_id": order_id})
+    assert cancel_response.status_code == 200
+
+    response = api_client.get("/api/order_status", params={"order_id": order_id})
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["status"] == "canceled"
+    assert body["remaining_volume"] > 0
+    assert body["terminated"] is True
+
+
+def test_order_status_invalid_uuid_and_missing_order(api_client):
+    invalid = api_client.get("/api/order_status", params={"order_id": "not-a-uuid"})
+    assert invalid.status_code == 400
+    assert invalid.json()["detail"] == "Invalid order id format. Must be a UUID string."
+
+    missing_uuid = str(uuid.uuid4())
+    missing = api_client.get("/api/order_status", params={"order_id": missing_uuid})
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == f"Order {missing_uuid} does not exist."

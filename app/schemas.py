@@ -37,3 +37,16 @@ class PublicTransaction(BaseModel):
     price: float
     volume: int
     timestamp: str
+
+
+class OrderStatusResponse(BaseModel):
+    order_id: str
+    ticker: str
+    side: str
+    order_type: str
+    price: float
+    total_volume: int
+    executed_volume: int
+    remaining_volume: int
+    terminated: bool
+    status: str
