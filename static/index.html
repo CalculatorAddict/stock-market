@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Stock Exchange Portal</title>
     <link rel="stylesheet" href="css/main.css" />
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <main id="view-container">
@@ -13,7 +12,7 @@
       <section id="portfolio-view" class="view active">
         <div class="view-header">
   <div class="header-content">
-    
+
     <!-- Top row: title -->
     <div id="portfolio-title" class="portfolio-title"></div>
 
@@ -79,8 +78,15 @@
             <button id="help-btn">Watch Tutorial</button>
           </div>
           <div class="setting-item">
-            <div id="g_id_signin"></div>
-            <button id="google-signout" style="display: none";>Sign out</button>
+            <label for="static-login-user">Demo User</label>
+            <select id="static-login-user"></select>
+          </div>
+          <div class="setting-item">
+            <label for="static-login-btn">Session</label>
+            <div class="settings-auth-actions">
+              <button id="static-login-btn">Sign in</button>
+              <button id="static-signout-btn" style="display: none;">Sign out</button>
+            </div>
           </div>
         </div>
       </section>

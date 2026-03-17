@@ -52,5 +52,5 @@ fi
 
 echo "Smoke response (GET /api/get_best):"
 cat "$OUT_FILE" | jq . 2>/dev/null || cat "$OUT_FILE"
-
+echo
 echo "Smoke demo completed."

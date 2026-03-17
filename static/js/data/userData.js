@@ -1,5 +1,8 @@
 // js/data/userData.js
 export var userData = {
+    name: "Guest",
+    email: "",
+    profilePicUrl: "",
     first_name: "Alice",
     last_name: "Alice",
     balance: 0,

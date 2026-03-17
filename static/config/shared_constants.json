@@ -35,10 +35,11 @@
         "email": "timcook@aol.com",
         "first_names": "Tim",
         "last_name": "Cook",
-        "balance": 1000000000,
+        "balance": 100000,
         "portfolio": {
-          "AAPL": 1000
-        }
+          "AAPL": 1000,
+          "GOOG": 1000,
+          "TSLA": 1000        }
       },
       {
         "username": "goat",
@@ -46,10 +47,11 @@
         "email": "lbj@nba.com",
         "first_names": "LeBron",
         "last_name": "James",
-        "balance": 1000000000,
+        "balance": 100000,
         "portfolio": {
-          "AAPL": 1000
-        }
+          "AAPL": 1000,
+          "GOOG": 1000,
+          "TSLA": 1000        }
       },
       {
         "username": "market_maker",
@@ -57,10 +59,11 @@
         "email": "market_maker@gmail.com",
         "first_names": "Market",
         "last_name": "Maker",
-        "balance": 1000000000,
+        "balance": 100000,
         "portfolio": {
-          "AAPL": 1000
-        }
+          "AAPL": 1000,
+          "GOOG": 1000,
+          "TSLA": 1000        }
       },
       {
         "username": "market_maker2",
@@ -68,9 +71,11 @@
         "email": "market_maker2@gmail.com",
         "first_names": "Market",
         "last_name": "Maker2",
-        "balance": 1000000000,
+        "balance": 100000,
         "portfolio": {
-          "AAPL": 1000
+          "AAPL": 1000,
+          "GOOG": 1000,
+          "TSLA": 1000
         }
       }
     ]

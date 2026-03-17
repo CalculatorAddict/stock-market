@@ -553,19 +553,46 @@ body {
   fill: var(--secondary-color);
 }
 
-#google-signout {
+#static-login-user {
+  background-color: var(--card-bg);
+  color: var(--text-color);
+  border: 1px solid rgba(127, 127, 127, 0.35);
+  font-size: 1em;
+  padding: 6px 10px;
+  border-radius: var(--border-radius);
+  min-width: 210px;
+  max-width: 62%;
+  cursor: pointer;
+}
 
-    background-color: var(--card-bg);
-    color: var(--text-color);
-    border: none;
-    font-size: 1em;
-    padding: 4px 8px;
-    border-radius: var(--border-radius);
-    cursor: pointer;
-    transition: all 0.3s ease;
+#static-login-user:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
 
+.settings-auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
 
+#static-login-btn,
+#static-signout-btn {
+  background-color: var(--primary-color);
+  color: #fff;
+  border: none;
+  font-size: 1em;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
 
+#static-signout-btn {
+  background-color: var(--card-bg);
+  color: var(--text-color);
 }
 #help-btn {
 
