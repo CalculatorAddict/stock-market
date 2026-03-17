@@ -6,6 +6,8 @@ from database import Database
 import new_user_portfolio as new_user
 
 from app.schemas import (
+    BestBidAskResponse,
+    BestPriceResponse,
     CancelOrderResponse,
     CancelOrderRequest,
     ClientData,
@@ -18,6 +20,7 @@ from app.schemas import (
     PlaceOrderRequest,
     PublicClientResponse,
     PublicTransaction,
+    VolumeAtPriceResponse,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
 from app.shared_constants import IDENTITY_HEADER_EMAIL, IDENTITY_HEADER_USER
@@ -574,10 +577,12 @@ def register_api_routes(app: FastAPI) -> None:
     app.post("/api/market_order", response_model=OrderIdResponse)(market_order)
     app.post("/api/cancel_order", response_model=CancelOrderResponse)(cancel_order)
     app.post("/api/edit_order", response_model=EditOrderResponse)(edit_order)
-    app.get("/api/get_best_bid")(get_best_bid)
-    app.get("/api/get_best_ask")(get_best_ask)
-    app.get("/api/get_best")(get_best)
-    app.get("/api/get_volume_at_price")(get_volume_at_price)
+    app.get("/api/get_best_bid", response_model=BestPriceResponse)(get_best_bid)
+    app.get("/api/get_best_ask", response_model=BestPriceResponse)(get_best_ask)
+    app.get("/api/get_best", response_model=BestBidAskResponse)(get_best)
+    app.get("/api/get_volume_at_price", response_model=VolumeAtPriceResponse)(
+        get_volume_at_price
+    )
     app.get("/api/get_all_asks", response_model=list[OrderBookLevel])(get_all_asks)
     app.get("/api/get_all_bids", response_model=list[OrderBookLevel])(get_all_bids)
     app.get("/api/order_status", response_model=OrderStatusResponse)(get_order_status)

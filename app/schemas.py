@@ -69,6 +69,19 @@ class OrderBookLevel(BaseModel):
     stock_id: int
 
 
+class BestPriceResponse(RootModel[float]):
+    pass
+
+
+class VolumeAtPriceResponse(RootModel[int]):
+    pass
+
+
+class BestBidAskResponse(BaseModel):
+    best_bid: float
+    best_ask: float
+
+
 class PublicTransaction(BaseModel):
     ticker: str
     price: float
