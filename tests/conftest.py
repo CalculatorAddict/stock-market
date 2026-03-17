@@ -123,3 +123,14 @@ def api_client(app_module):
 @pytest.fixture
 def default_ticker():
     return "AAPL"
+
+
+def pytest_collection_modifyitems(items):
+    for item in items:
+        path = str(item.fspath)
+        if "/tests/api/" in path:
+            item.add_marker(pytest.mark.api)
+        elif "/tests/integration/" in path:
+            item.add_marker(pytest.mark.integration)
+        elif "/tests/unit/" in path:
+            item.add_marker(pytest.mark.unit)
