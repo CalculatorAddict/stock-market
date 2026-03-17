@@ -170,3 +170,26 @@ def test_note_13_existing_orders_reconcile_when_matchability_changes():
     assert ask_order.terminated
     assert OrderBook.get_all_bids("AAPL") == []
     assert OrderBook.get_all_asks("AAPL") == []
+
+
+def test_buyer_partial_fill_then_zero_balance_cancels_remaining_order(monkeypatch):
+    book = OrderBook("AAPL")
+    monkeypatch.setattr("OrderBook.OrderBook.Transaction", _NoDbTransaction)
+
+    buyer = Client("limited_buyer", "pw", "limited@example.com", "Limited", "Buyer", 10)
+    seller = Client("liquid_seller", "pw", "seller@example.com", "Liquid", "Seller", 0)
+    seller.portfolio["AAPL"] = 5
+
+    ask_id = book._place_order(SELL_SIDE, 10.0, 5, seller, is_market=False)
+    bid_id = book._place_order(BUY_SIDE, 10.0, 2, buyer, is_market=False)
+
+    ask_order = Order.get_order_by_id(ask_id)
+    bid_order = Order.get_order_by_id(bid_id)
+
+    assert buyer.balance == 0
+    assert buyer.portfolio["AAPL"] == 1
+    assert bid_order.terminated is True
+    assert bid_order.volume == 1
+    assert ask_order.terminated is False
+    assert ask_order.volume == 4
+    assert OrderBook.get_all_bids("AAPL") == []

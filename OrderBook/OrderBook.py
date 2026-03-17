@@ -305,15 +305,16 @@ class Order:
         if side == BUY:
             self.client.buy_stock(self.stock_id, price, vol)
             if self.volume > 0 and self.client.get_balance() == 0:
-                stock.cancel_order(
-                    self
+                # Keep cancel semantics centralized: cancel by order_id.
+                OrderBook.cancel_order(
+                    self.order_id
                 )  # cancel the order if buyer has run out of funds
         else:  # side == SELL
             self.client.sell_stock(self.stock_id, price, vol)
 
             ticker = stock.get_ticker()
             if self.volume > 0 and ticker not in self.client.portfolio:
-                stock.cancel_order(
+                OrderBook.cancel_order(
                     self.order_id
                 )  # cancel the order if seller ran out of stock
 
@@ -725,7 +726,7 @@ class OrderBook:
 
         # an order is added even though it might not be feasible, but it may become feasible in the future
         # this means we should add "active orders" for each client
-        if order.volume > 0:
+        if order.volume > 0 and not order.terminated:
             # all possible trades have been executed, so store the remaining order in the book
             same_book.add(order)
 
