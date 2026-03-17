@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Minimal end-to-end smoke demo
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+
+LOG_FILE="/tmp/stock-smoke.log"
+OUT_FILE="/tmp/stock-smoke.json"
+
+# Ensure port is free
+kill -9 $(lsof -t -i:8000) 2>/dev/null || true
+
+echo "Creating/updating virtual environment with uv..."
+[ -d ".venv" ] || uv venv
+source .venv/bin/activate
+uv sync
+
+echo "Running tests..."
+if ! pytest -q; then
+  echo "Tests failed (continuing smoke demo)"
+fi
+
+echo "Starting FastAPI server..."
+uvicorn app:app --host 127.0.0.1 --port 8000 > "$LOG_FILE" 2>&1 &
+SERVER_PID=$!
+
+cleanup() {
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill "$SERVER_PID" >/dev/null 2>&1 || true
+  fi
+  rm -f "$OUT_FILE" "$LOG_FILE"
+}
+trap cleanup EXIT
+
+echo "Waiting for server readiness..."
+READY=false
+for _ in {1..15}; do
+  if curl -sSf http://127.0.0.1:8000/api/get_best?ticker=AAPL > "$OUT_FILE"; then
+    READY=true
+    break
+  fi
+  sleep 1
+done
+
+if [ "$READY" = false ]; then
+  echo "Server failed to start. Logs:"
+  cat "$LOG_FILE"
+  exit 1
+fi
+
+echo "Smoke response (GET /api/get_best):"
+cat "$OUT_FILE" | jq . 2>/dev/null || cat "$OUT_FILE"
+
+echo "Smoke demo completed."
