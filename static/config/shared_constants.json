@@ -13,6 +13,16 @@
     }
   },
   "backend": {
+    "tickers": [
+      "AAPL",
+      "GOOG",
+      "TSLA"
+    ],
+    "opening_prices": {
+      "AAPL": 210,
+      "GOOG": 60,
+      "TSLA": 150
+    },
     "demo": {
       "title": "Demo access",
       "description": "Use these demo users to place sample orders in the local environment.",
