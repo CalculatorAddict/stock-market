@@ -1,19 +1,3 @@
-const DEFAULT_SHARED_CONSTANTS = {
-  identity_headers: {
-    user: 'X-Actor-User',
-    email: 'X-Actor-Email',
-  },
-  frontend: {
-    google_client_id: '933623916878-ipovfk31uqvoidtvj5pcknkod3ggdter.apps.googleusercontent.com',
-    websocket: {
-      client_info_primary: 'ws://localhost:8000/client_info',
-      client_info_fallback: 'ws://mtomecki.pl:8000/client_info',
-      orderbook_primary: 'ws://localhost:8000/ws',
-      orderbook_fallback: 'ws://mtomecki.pl:8000/ws',
-    },
-  },
-};
-
 let cachedSharedConstants = null;
 
 export async function getSharedConstants() {
@@ -21,62 +5,73 @@ export async function getSharedConstants() {
     return cachedSharedConstants;
   }
 
-  try {
-    const response = await fetch('/app/config/shared_constants.json');
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    cachedSharedConstants = await response.json();
-  } catch (error) {
-    console.warn('Falling back to default shared constants:', error);
-    cachedSharedConstants = DEFAULT_SHARED_CONSTANTS;
+  const response = await fetch('/app/config/shared_constants.json');
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load /app/config/shared_constants.json (HTTP ${response.status})`,
+    );
   }
 
+  cachedSharedConstants = await response.json();
   return cachedSharedConstants;
+}
+
+function requireSharedConstant(value, path) {
+  if (value === undefined || value === null || value === '') {
+    throw new Error(`Missing required shared constant: ${path}`);
+  }
+  return value;
 }
 
 export async function getIdentityHeaderNames() {
   const sharedConstants = await getSharedConstants();
-  const identityHeaders = sharedConstants.identity_headers || {};
 
   return {
-    user: identityHeaders.user || DEFAULT_SHARED_CONSTANTS.identity_headers.user,
-    email: identityHeaders.email || DEFAULT_SHARED_CONSTANTS.identity_headers.email,
+    user: requireSharedConstant(
+      sharedConstants.identity_headers?.user,
+      'identity_headers.user',
+    ),
+    email: requireSharedConstant(
+      sharedConstants.identity_headers?.email,
+      'identity_headers.email',
+    ),
   };
 }
 
 export async function getGoogleClientId() {
   const sharedConstants = await getSharedConstants();
-  return (
-    sharedConstants.frontend?.google_client_id ||
-    DEFAULT_SHARED_CONSTANTS.frontend.google_client_id
+  return requireSharedConstant(
+    sharedConstants.frontend?.google_client_id,
+    'frontend.google_client_id',
   );
 }
 
 export async function getClientInfoSocketAddresses() {
   const sharedConstants = await getSharedConstants();
-  const websocket = sharedConstants.frontend?.websocket || {};
 
   return {
-    primary:
-      websocket.client_info_primary ||
-      DEFAULT_SHARED_CONSTANTS.frontend.websocket.client_info_primary,
-    fallback:
-      websocket.client_info_fallback ||
-      DEFAULT_SHARED_CONSTANTS.frontend.websocket.client_info_fallback,
+    primary: requireSharedConstant(
+      sharedConstants.frontend?.websocket?.client_info_primary,
+      'frontend.websocket.client_info_primary',
+    ),
+    fallback: requireSharedConstant(
+      sharedConstants.frontend?.websocket?.client_info_fallback,
+      'frontend.websocket.client_info_fallback',
+    ),
   };
 }
 
 export async function getOrderbookSocketAddresses() {
   const sharedConstants = await getSharedConstants();
-  const websocket = sharedConstants.frontend?.websocket || {};
 
   return {
-    primary:
-      websocket.orderbook_primary ||
-      DEFAULT_SHARED_CONSTANTS.frontend.websocket.orderbook_primary,
-    fallback:
-      websocket.orderbook_fallback ||
-      DEFAULT_SHARED_CONSTANTS.frontend.websocket.orderbook_fallback,
+    primary: requireSharedConstant(
+      sharedConstants.frontend?.websocket?.orderbook_primary,
+      'frontend.websocket.orderbook_primary',
+    ),
+    fallback: requireSharedConstant(
+      sharedConstants.frontend?.websocket?.orderbook_fallback,
+      'frontend.websocket.orderbook_fallback',
+    ),
   };
 }
