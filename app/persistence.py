@@ -1,7 +1,10 @@
 import sqlite3
 from datetime import datetime, timezone
 
-from OrderBook.OrderBook import BUY, LIMIT, MARKET, SELL, Client, Order, OrderBook
+from engine.order_book import OrderBook
+from models.client import Client
+from models.enums import BUY, LIMIT, MARKET, SELL
+from models.order import Order
 
 ORDERBOOK_STATE_TABLE = "orderbook_state"
 

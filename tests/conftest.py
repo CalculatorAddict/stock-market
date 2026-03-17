@@ -14,7 +14,9 @@ BASE_DB_PATH = ROOT_DIR / "stock_market_database.db"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from OrderBook.OrderBook import Client, Order, OrderBook
+from engine.order_book import OrderBook
+from models.client import Client
+from models.order import Order
 
 
 def _restore_database_from_backup(db_path: Path, backup: Path) -> None:

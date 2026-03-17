@@ -5,7 +5,7 @@ from typing import Self
 
 from sortedcontainers import SortedList
 
-from OrderBook.tickers import OPENING_PRICES
+from engine.tickers import OPENING_PRICES
 from models.client import Client, ClientInfo
 from models.enums import BUY, SELL, BuyOrSell, LIMIT, MARKET
 from models.order import Order

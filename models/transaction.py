@@ -4,13 +4,13 @@ from datetime import datetime, timezone
 from typing import Self
 
 from database import Database
-from OrderBook.tickers import OPENING_PRICES
+from engine.tickers import OPENING_PRICES
 from models.enums import BUY, SELL, LIMIT
 from models.order import Order
 
 
 def _orderbook_cls():
-    from OrderBook.OrderBook import OrderBook
+    from engine.order_book import OrderBook
 
     return OrderBook
 

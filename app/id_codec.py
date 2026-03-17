@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import HTTPException
 
-from OrderBook.OrderBook import Order
+from models.order import Order
 
 
 ORDER_ID_NAMESPACE = uuid.UUID("4f3e6867-0a48-4ef9-a54f-4f315fdb9b29")

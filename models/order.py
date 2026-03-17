@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def _orderbook_cls():
-    from OrderBook.OrderBook import OrderBook
+    from engine.order_book import OrderBook
 
     return OrderBook
 

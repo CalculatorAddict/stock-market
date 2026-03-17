@@ -1,4 +1,6 @@
-from OrderBook.OrderBook import BUY, SELL, Client, OrderBook
+from engine.order_book import OrderBook
+from models.client import Client
+from models.enums import BUY, SELL
 
 
 def _init_context():

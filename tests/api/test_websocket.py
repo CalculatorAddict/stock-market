@@ -2,7 +2,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from OrderBook.tickers import TICKERS
+from engine.tickers import TICKERS
 
 DEFAULT_ACTOR_HEADERS = {
     "X-Actor-User": "tapple",

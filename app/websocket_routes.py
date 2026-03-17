@@ -4,8 +4,9 @@ import json
 from fastapi import FastAPI, WebSocket
 from fastapi.encoders import jsonable_encoder
 
-from OrderBook.OrderBook import Client, OrderBook
-from OrderBook.tickers import TICKERS
+from engine.order_book import OrderBook
+from engine.tickers import TICKERS
+from models.client import Client
 
 
 async def websocket_endpoint(

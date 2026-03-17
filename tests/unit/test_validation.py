@@ -2,7 +2,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.validation import orderbook_error_to_http, validate_side, validate_ticker
-from OrderBook.tickers import TICKERS
+from engine.tickers import TICKERS
 
 
 def test_validate_ticker_accepts_supported_ticker():

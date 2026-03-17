@@ -1,5 +1,7 @@
-from OrderBook.OrderBook import BUY as BUY_SIDE, SELL as SELL_SIDE
-from OrderBook.OrderBook import Client, Order, OrderBook
+from engine.order_book import OrderBook
+from models.client import Client
+from models.enums import BUY as BUY_SIDE, SELL as SELL_SIDE
+from models.order import Order
 
 
 def _build_book_with_clients(ticker="AAPL"):

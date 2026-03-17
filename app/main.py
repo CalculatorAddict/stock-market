@@ -5,13 +5,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
-from OrderBook.OrderBook import *
-from OrderBook.tickers import *
 from datetime import datetime, timedelta
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.persistence import persist_orderbook_state, restore_orderbook_state
 from app.shared_constants import DEMO_CLIENTS
+from engine.order_book import OrderBook
+from engine.tickers import TICKERS
+from models.client import Client
 
 # Initialize order books
 order_books = [OrderBook(ticker) for ticker in TICKERS]

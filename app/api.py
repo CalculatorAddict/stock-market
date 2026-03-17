@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Header, HTTPException
 
-from OrderBook.OrderBook import *
-from OrderBook.tickers import *
 from database import Database
 import new_user_portfolio as new_user
+from engine.order_book import OrderBook
+from models.client import Client
+from models.enums import BUY, SELL
+from models.order import Order
 
 from app.schemas import (
     BestBidAskResponse,

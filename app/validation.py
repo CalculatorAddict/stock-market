@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from OrderBook.tickers import TICKERS
+from engine.tickers import TICKERS
 
 
 def validate_ticker(ticker: str) -> str:

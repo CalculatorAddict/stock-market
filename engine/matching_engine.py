@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sortedcontainers import SortedList
+from models.enums import BUY, LIMIT, MARKET
+from models.transaction import Transaction
 
 if TYPE_CHECKING:
-    from OrderBook.OrderBook import Order, OrderBook
+    from engine.order_book import OrderBook
+    from models.order import Order
 
 
 class MatchingEngine:
@@ -15,8 +18,6 @@ class MatchingEngine:
     def _find_matching_order(
         order_book: "OrderBook", order: "Order", opposite_book: SortedList
     ) -> "Order | None":
-        from OrderBook.OrderBook import BUY, LIMIT
-
         for other_order in list(opposite_book):
             if other_order.client == order.client:
                 continue
@@ -44,8 +45,6 @@ class MatchingEngine:
         opposite_book: SortedList,
         order_in_book: bool = False,
     ) -> None:
-        from OrderBook.OrderBook import BUY, LIMIT, Transaction
-
         while order.is_executable() and opposite_book:
             other_order = cls._find_matching_order(order_book, order, opposite_book)
             if other_order is None:
@@ -82,8 +81,6 @@ class MatchingEngine:
 
     @classmethod
     def process_order(cls, order_book: "OrderBook", order: "Order") -> None:
-        from OrderBook.OrderBook import BUY, MARKET
-
         opposite_book = order_book.asks if order.side == BUY else order_book.bids
         cls._execute_trades_between(order_book, order, opposite_book)
 
@@ -127,7 +124,7 @@ class MatchingEngine:
 
     @classmethod
     def match_by_ticker(cls, ticker: str | None = None) -> None:
-        from OrderBook.OrderBook import OrderBook
+        from engine.order_book import OrderBook
 
         if ticker is None:
             for book in OrderBook._all_books:
