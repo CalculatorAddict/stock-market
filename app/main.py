@@ -10,6 +10,7 @@ from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.persistence import persist_orderbook_state, restore_orderbook_state
 from app.shared_constants import DEMO_CLIENTS
+from engine.portfolio_value import PortfolioValue
 from engine.order_book import OrderBook
 from engine.tickers import TICKERS
 from models.client import Client
@@ -118,7 +119,7 @@ async def update_daily_portfolio_value():
         )
         sleep_seconds = (next_day - now).total_seconds()
         await asyncio.sleep(sleep_seconds)
-        Client.update_all_daily_portfolio()
+        PortfolioValue.update_all_daily_values()
 
 
 # # *** Code for AR(1) price model

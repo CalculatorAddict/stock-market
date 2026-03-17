@@ -94,7 +94,6 @@ def restore_orderbook_state() -> None:
             order.order_id = order_id
             order.timestamp = _parse_order_timestamp(timestamp)
             order.stock_id = book.stock_id
-            order.stock = book
             order.ticker = ticker
             order.side = BUY if side == BUY.value else SELL
             order.price = price

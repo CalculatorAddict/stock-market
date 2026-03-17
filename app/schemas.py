@@ -46,6 +46,8 @@ class PublicClientResponse(BaseModel):
     last_name: str
     balance: float
     portfolio: dict[str, float]
+    portfolio_value: float
+    portfolio_pnl: float
 
 
 class DemoAccount(BaseModel):

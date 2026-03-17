@@ -5,6 +5,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.encoders import jsonable_encoder
 
 from engine.order_book import OrderBook
+from engine.portfolio_value import PortfolioValue
 from engine.tickers import TICKERS
 from models.client import Client
 
@@ -24,7 +25,7 @@ async def websocket_endpoint(
                 all_asks = OrderBook.get_all_asks(ticker)
                 last_price = OrderBook.get_last_price(ticker)
                 last_timestamp = OrderBook.get_last_timestamp(ticker)
-                pnl = OrderBook.calculate_pnl_24h(ticker)
+                pnl = PortfolioValue.calculate_pnl_24h(ticker)
                 summary[ticker] = {
                     "ticker": ticker,
                     "best_bid": best_bid,
@@ -81,11 +82,11 @@ async def client_info_websocket(websocket: WebSocket):
 
         # Periodically send client information
         while True:
-            pval = OrderBook.portfolio_value(client)
+            pval = PortfolioValue.current_value(client)
             pnl = {}
-            portfolioPnl = OrderBook.portfolio_pnl(client)
+            portfolioPnl = PortfolioValue.pnl_percent(client)
             for ticker in TICKERS:
-                pnl[ticker] = OrderBook.calculate_pnl_24h(ticker)
+                pnl[ticker] = PortfolioValue.calculate_pnl_24h(ticker)
             client_info = {
                 "balance": client.balance,
                 "portfolio": client.portfolio,

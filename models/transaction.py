@@ -3,16 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Self
 
-from database import Database
 from engine.tickers import OPENING_PRICES
 from models.enums import BUY, SELL, LIMIT
 from models.order import Order
-
-
-def _orderbook_cls():
-    from engine.order_book import OrderBook
-
-    return OrderBook
+from database import Database
 
 
 class Transaction:
@@ -20,14 +14,14 @@ class Transaction:
     _transaction_offset = -10
 
     # object as parameter, NOT IDs
-    def __init__(self, bid: Order, ask: Order, vol: int):
+    def __init__(self, bid: Order, ask: Order, vol: int, transaction_id: int):
         if bid.get_stock_id() != ask.get_stock_id():
             raise ValueError(
                 "Both orders must be from the same stock"
             )  # precondition: bid and ask have same stock
         else:
             stock_id = bid.get_stock_id()
-            stock = bid.get_stock()
+            ticker = bid.get_ticker()
 
         self.timestamp = datetime.now(timezone.utc)
 
@@ -42,34 +36,19 @@ class Transaction:
         self.price = price
         self.vol = vol
         self.stock_id = stock_id
+        self.ticker = ticker
 
-        # Add transaction to the database
-        bidder_db_id = Database().account_from_email(self.bidder.email)[0]
-        asker_db_id = Database().account_from_email(self.asker.email)[0]
-        self.transaction_id = Database().create_transaction(
-            bidder_db_id,
-            self.bid_price,
-            asker_db_id,
-            self.ask_price,
-            self.vol,
-            bid.get_ticker(),
-            price,
-        )
+        self.transaction_id = transaction_id
         # If first transaction in the system
         if Transaction._all_transactions == []:
             Transaction._transaction_offset = self.transaction_id
         Transaction._all_transactions += [self]
 
-        # update the state of the orders to reflect the transaction
-        update_price = self.bidder != self.asker
-        bid.execute_trade(self.transaction_id, price, vol, BUY, update_price)
-        ask.execute_trade(self.transaction_id, price, vol, SELL, update_price)
-
         # log transaction
         print(self)
 
     def __str__(self):
-        return f"TRANSACTION: {str(self.asker)} sold {str(self.bidder)} {self.vol} shares of {_orderbook_cls().get_ticker_by_id(self.stock_id)} @ {self.price}"
+        return f"TRANSACTION: {str(self.asker)} sold {str(self.bidder)} {self.vol} shares of {self.ticker} @ {self.price}"
 
     def get_price(self):
         return self.price

@@ -2,7 +2,9 @@ from fastapi import FastAPI, Header, HTTPException
 
 from database import Database
 import new_user_portfolio as new_user
+from engine.matching_engine import MatchingEngine
 from engine.order_book import OrderBook
+from engine.portfolio_value import PortfolioValue
 from models.client import Client
 from models.enums import BUY, SELL
 from models.order import Order
@@ -36,6 +38,10 @@ from app.validation import orderbook_error_to_http, validate_side, validate_tick
 
 
 def _serialize_public_client(client: Client) -> dict:
+    portfolio_value = PortfolioValue.current_value(client)
+    daily_value = PortfolioValue.get_daily_value(client)
+    portfolio_pnl = 0.0 if daily_value == 0 else PortfolioValue.pnl_percent(client)
+
     return {
         "client_id": to_public_client_id(client.client_id),
         "username": client.username,
@@ -44,6 +50,8 @@ def _serialize_public_client(client: Client) -> dict:
         "last_name": client.last_name,
         "balance": client.balance,
         "portfolio": client.portfolio,
+        "portfolio_value": portfolio_value,
+        "portfolio_pnl": portfolio_pnl,
     }
 
 
@@ -149,7 +157,15 @@ async def place_order(
     print(f"Placing order for stock {ticker}: {side} at {price} for {volume} shares")
     order_side = BUY if side.lower() == "buy" else SELL
     try:
-        order_id = OrderBook.place_order(ticker, order_side, price, volume, client)
+        stock = OrderBook.get_book_by_ticker(ticker)
+        order_id = MatchingEngine.place_order(
+            stock,
+            order_side,
+            price,
+            volume,
+            client,
+            is_market=False,
+        )
         return to_public_order_id(order_id)
     except Exception as e:
         orderbook_error_to_http(e)
@@ -197,7 +213,15 @@ async def market_order(
     )
     order_side = BUY if side.lower() == "buy" else SELL
     try:
-        order_id = OrderBook.market_order(ticker, order_side, volume, client)
+        stock = OrderBook.get_book_by_ticker(ticker)
+        order_id = MatchingEngine.place_order(
+            stock,
+            order_side,
+            0,
+            volume,
+            client,
+            is_market=True,
+        )
         return to_public_order_id(order_id)
     except Exception as e:
         orderbook_error_to_http(e)
@@ -229,7 +253,8 @@ async def cancel_order(
 
     print(f"Cancelling order {order_id}")
     try:
-        response = OrderBook.cancel_order(order_id)
+        stock = OrderBook.get_book_by_ticker(order.ticker)
+        response = MatchingEngine.remove_order(stock, order, cancelling=True)
     except Exception as e:
         orderbook_error_to_http(e)
 
@@ -278,7 +303,8 @@ async def edit_order(
 
     print(f"Editing order {order_id}: new price {price}, new volume {volume}")
     try:
-        diff, message = OrderBook.edit_order(order_id, price, volume)
+        stock = OrderBook.get_book_by_ticker(order.ticker)
+        diff, message = MatchingEngine.edit_order(stock, order, price, volume)
     except Exception as e:
         orderbook_error_to_http(e)
 
