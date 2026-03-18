@@ -16,6 +16,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from engine.order_book import OrderBook
 from engine.portfolio_value import PortfolioValue
+from app.price_history import clear_history_state
 from models.client import Client
 from models.order import Order
 
@@ -84,6 +85,7 @@ def reset_domain_state(monkeypatch: pytest.MonkeyPatch, test_db_path: Path):
     Client._clients_by_email.clear()
     Client.counter = 0
     PortfolioValue.clear_daily_values()
+    clear_history_state()
 
     _clear_orderbook_state_table()
 
@@ -117,6 +119,7 @@ def app_module(reset_domain_state):
     Client._clients_by_email.clear()
     Client.counter = 0
     PortfolioValue.clear_daily_values()
+    clear_history_state()
 
     return reload(import_module("app.main"))
 

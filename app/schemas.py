@@ -108,6 +108,11 @@ class PublicPricePoint(BaseModel):
     price: float
 
 
+class PublicPortfolioValuePoint(BaseModel):
+    date: datetime
+    value: float
+
+
 class OrderStatusResponse(BaseModel):
     order_id: str
     ticker: str

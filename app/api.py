@@ -25,11 +25,16 @@ from app.schemas import (
     PlaceOrderRequest,
     PublicClientResponse,
     PublicPricePoint,
+    PublicPortfolioValuePoint,
     PublicTransaction,
     VolumeAtPriceResponse,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
-from app.price_history import DEFAULT_WINDOW_SECONDS, get_price_history
+from app.price_history import (
+    DEFAULT_WINDOW_SECONDS,
+    get_portfolio_value_history,
+    get_price_history,
+)
 from app.shared_constants import (
     DEMO_API_INFO,
     DEMO_CLIENTS,
@@ -89,13 +94,31 @@ def _assert_actor_matches_client(
     normalized_email = _normalize_identity(actor_email)
 
     if normalized_user is not None and normalized_user != client.username.lower():
+        detail = (
+            "Actor username does not match target user. "
+            f"actor_user={normalized_user} target_user={client.username.lower()}"
+        )
+        print(
+            f"{detail} actor_email={normalized_email} target_email={client.email.lower()}",
+            flush=True,
+        )
         raise HTTPException(
-            status_code=403, detail="Actor username does not match target user."
+            status_code=403,
+            detail=detail,
         )
 
     if normalized_email is not None and normalized_email != client.email.lower():
+        detail = (
+            "Actor email does not match target user. "
+            f"actor_email={normalized_email} target_email={client.email.lower()}"
+        )
+        print(
+            f"{detail} actor_user={normalized_user} target_user={client.username.lower()}",
+            flush=True,
+        )
         raise HTTPException(
-            status_code=403, detail="Actor email does not match target user."
+            status_code=403,
+            detail=detail,
         )
 
 
@@ -108,8 +131,15 @@ def _assert_actor_matches_email(request_email: str, actor_email: str | None) -> 
         )
 
     if normalized_actor_email != request_email.strip().lower():
+        detail = (
+            "Actor email does not match target user. "
+            f"actor_email={normalized_actor_email} "
+            f"target_email={request_email.strip().lower()}"
+        )
+        print(detail, flush=True)
         raise HTTPException(
-            status_code=403, detail="Actor email does not match target user."
+            status_code=403,
+            detail=detail,
         )
 
 
@@ -508,6 +538,42 @@ async def get_prices(ticker: str, window: int = DEFAULT_WINDOW_SECONDS):
     return get_price_history(ticker, window)
 
 
+async def get_portfolio_values(
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+    window: int = DEFAULT_WINDOW_SECONDS,
+):
+    """
+    Get recent sampled portfolio values for the authenticated actor.
+
+    Parameters:
+    - window: Rolling window size in seconds. Defaults to 60.
+
+    Returns:
+    - List of `{date, value}` points ordered from oldest to newest.
+    """
+    if window <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Window must be a positive integer.",
+        )
+
+    _assert_actor_headers_present(x_actor_user, x_actor_email)
+    client = None
+    normalized_user = _normalize_identity(x_actor_user)
+    normalized_email = _normalize_identity(x_actor_email)
+
+    if normalized_user is not None:
+        client = Client.get_client_by_username(normalized_user)
+    if client is None and normalized_email is not None:
+        client = Client.get_client_by_email(normalized_email)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Authenticated client not found.")
+
+    _assert_actor_matches_client(client, x_actor_user, x_actor_email)
+    return get_portfolio_value_history(client, window)
+
+
 async def get_demo() -> dict:
     demo_accounts = []
     for demo_client in DEMO_CLIENTS:
@@ -677,6 +743,9 @@ def register_api_routes(app: FastAPI) -> None:
         get_transactions
     )
     app.get("/prices", response_model=list[PublicPricePoint])(get_prices)
+    app.get("/api/portfolio_values", response_model=list[PublicPortfolioValuePoint])(
+        get_portfolio_values
+    )
     app.get("/api/demo", response_model=DemoResponse)(get_demo)
     app.get("/api/get_client_by_email", response_model=PublicClientResponse)(
         get_client_by_email
