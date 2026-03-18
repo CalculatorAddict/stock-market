@@ -1,5 +1,6 @@
 import { userData } from '../data/userData.js';
 import { portfolioPerformanceData } from '../data/portfolioPerformance.js';
+import { stockDataPrices } from '../data/stockData.js';
 import { drawDetailedGraph } from './graph.js';
 import { loggedIn } from '../main.js';
 import { getIdentityHeaderNames } from '../config/sharedConstants.js';
@@ -9,7 +10,196 @@ import { getLiveOrderbookSnapshots, openStockDetail } from './stockDetails.js';
 let headerGraph;
 let portfolioRenderVersion = 0;
 let orderbookRefreshBound = false;
+let livePortfolioIntervalId = null;
+let portfolioHistoryIdentity = null;
+let portfolioHistoryLoadingIdentity = null;
+let portfolioHistoryRequestVersion = 0;
 const hiddenOrderIds = new Set();
+const PORTFOLIO_UPDATE_INTERVAL_MS = 3000;
+const PORTFOLIO_HISTORY_WINDOW_SECONDS = 60;
+
+function toFiniteNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getLiveTickerPrice(ticker) {
+  const snapshot = getLiveOrderbookSnapshots()[ticker];
+  if (snapshot) {
+    const bestBid = toFiniteNumber(snapshot.best_bid);
+    const bestAsk = toFiniteNumber(snapshot.best_ask);
+    if (bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0) {
+      return (bestBid + bestAsk) / 2;
+    }
+
+    const lastPrice = toFiniteNumber(snapshot.last_price);
+    if (lastPrice !== null) {
+      return lastPrice;
+    }
+  }
+
+  return null;
+}
+
+function getFallbackTickerPrice(ticker) {
+  const history = stockDataPrices[ticker] || [];
+  const lastPoint = history.length ? history[history.length - 1] : null;
+  return toFiniteNumber(lastPoint?.price);
+}
+
+function getBestAvailablePortfolioValue() {
+  let missingPricedHolding = false;
+  const holdingsValue = userData.holdings.reduce((total, holding) => {
+    const amount = toFiniteNumber(holding.amount) ?? 0;
+    if (amount === 0) {
+      return total;
+    }
+
+    const marketPrice =
+      getLiveTickerPrice(holding.stock) ?? getFallbackTickerPrice(holding.stock);
+    if (marketPrice === null) {
+      missingPricedHolding = true;
+      return total;
+    }
+
+    return total + amount * marketPrice;
+  }, 0);
+
+  if (missingPricedHolding) {
+    const serverPortfolioValue = toFiniteNumber(userData.serverPortfolioValue);
+    if (serverPortfolioValue !== null) {
+      return serverPortfolioValue;
+    }
+  }
+
+  return userData.balance + holdingsValue;
+}
+
+function recomputeLivePortfolioValue() {
+  return getBestAvailablePortfolioValue();
+}
+
+async function fetchPortfolioValueHistory(windowSeconds = PORTFOLIO_HISTORY_WINDOW_SECONDS) {
+  const identityHeaderNames = await getIdentityHeaderNames();
+  const response = await fetch(`/api/portfolio_values?window=${windowSeconds}`, {
+    headers: {
+      [identityHeaderNames.user]: userData.username,
+      [identityHeaderNames.email]: userData.email,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload
+    .map((point) => ({
+      date: new Date(point.date),
+      value: Number(point.value),
+    }))
+    .filter((point) => Number.isFinite(point.date.getTime()) && Number.isFinite(point.value));
+}
+
+function applyTimedPortfolioMarketValue() {
+  if (!loggedIn) {
+    return;
+  }
+
+  const nextPortfolioValue = recomputeLivePortfolioValue();
+  if (!Number.isFinite(nextPortfolioValue)) {
+    return;
+  }
+
+  userData.portfolioValue = nextPortfolioValue;
+  updateHeader();
+
+  if (headerGraph) {
+    headerGraph.update({
+      price: nextPortfolioValue,
+      force_price: true,
+    });
+  }
+}
+
+async function hydratePortfolioHistory() {
+  if (!loggedIn) {
+    portfolioHistoryIdentity = null;
+    portfolioHistoryLoadingIdentity = null;
+    if (headerGraph?.replaceData) {
+      headerGraph.replaceData([]);
+    }
+    return;
+  }
+
+  const currentIdentity = `${userData.username}|${userData.email}`;
+  if (
+    portfolioHistoryIdentity === currentIdentity ||
+    portfolioHistoryLoadingIdentity === currentIdentity
+  ) {
+    return;
+  }
+
+  const requestVersion = ++portfolioHistoryRequestVersion;
+  portfolioHistoryLoadingIdentity = currentIdentity;
+
+  try {
+    const history = await fetchPortfolioValueHistory();
+    if (requestVersion !== portfolioHistoryRequestVersion) {
+      return;
+    }
+
+    portfolioPerformanceData.splice(0, portfolioPerformanceData.length, ...history);
+    if (history.length) {
+      userData.portfolioValue = history[history.length - 1].value;
+      updateHeader();
+    }
+
+    if (headerGraph?.replaceData) {
+      headerGraph.replaceData(history);
+    }
+    portfolioHistoryIdentity = currentIdentity;
+  } catch (error) {
+    console.error('Failed to hydrate portfolio value history:', error);
+  } finally {
+    if (portfolioHistoryLoadingIdentity === currentIdentity) {
+      portfolioHistoryLoadingIdentity = null;
+    }
+  }
+}
+
+export async function ensurePortfolioHistoryHydrated() {
+  await hydratePortfolioHistory();
+}
+
+function startLivePortfolioInterval() {
+  if (livePortfolioIntervalId !== null) {
+    return;
+  }
+
+  livePortfolioIntervalId = window.setInterval(() => {
+    applyTimedPortfolioMarketValue();
+  }, PORTFOLIO_UPDATE_INTERVAL_MS);
+}
+
+function stopLivePortfolioInterval() {
+  if (livePortfolioIntervalId === null) {
+    return;
+  }
+
+  window.clearInterval(livePortfolioIntervalId);
+  livePortfolioIntervalId = null;
+  portfolioHistoryIdentity = null;
+  portfolioHistoryLoadingIdentity = null;
+}
 
 function updateHeader() {
   const img = document.getElementById('header-pic');
@@ -410,15 +600,14 @@ function bindOrderbookRefresh() {
 }
 
 export function initPortfolioView() {
-  updateHeader();
-  bindOrderbookRefresh();
-
   const graphDiv = document.getElementById('header-graph');
-  headerGraph = drawDetailedGraph(graphDiv, portfolioPerformanceData, {
+  headerGraph = drawDetailedGraph(graphDiv, loggedIn ? portfolioPerformanceData : [], {
     height: 200,
     yKey: 'value',
     resizeOnWindow: true,
   });
+  bindOrderbookRefresh();
+  startLivePortfolioInterval();
 
   const portfolioList = document.getElementById('portfolio-list');
   const existingTitle = document.querySelector('.positions-title');
@@ -430,15 +619,11 @@ export function initPortfolioView() {
   }
 
   refreshPortfolioList();
+  updateHeader();
+  void hydratePortfolioHistory();
 }
 
 export function populatePortfolio() {
-  updateHeader();
-
-  if (headerGraph) {
-    headerGraph.update({ price: userData.portfolioValue, force_price: true });
-  }
-
   const portfolioList = document.getElementById('portfolio-list');
   const positionsTitle = document.querySelector('.positions-title');
   if (portfolioList?.parentNode && positionsTitle) {
@@ -446,4 +631,16 @@ export function populatePortfolio() {
   }
 
   refreshPortfolioList();
+  if (!loggedIn) {
+    updateHeader();
+    stopLivePortfolioInterval();
+    if (headerGraph?.replaceData) {
+      headerGraph.replaceData([]);
+    }
+    return;
+  }
+
+  updateHeader();
+  startLivePortfolioInterval();
+  void hydratePortfolioHistory();
 }

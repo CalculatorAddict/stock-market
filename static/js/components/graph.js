@@ -5,6 +5,7 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
   const valueKey = config.yKey || "value";
   const clipId = `clip-${Math.random().toString(36).slice(2)}`;
   const liveWindowMs = config.liveWindowMs || 60_000;
+  const hideYAxisLabels = config.hideYAxisLabels === true;
 
   // Keep mutable values in closure so update() can append one sample at a time.
   let width = config.width || containerElement.clientWidth || 600;
@@ -16,7 +17,9 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
   let lastSampleTimeMs = sortedData.length
     ? sortedData[sortedData.length - 1].date.getTime()
     : null;
-  let lastTradeTimestampMs = null;
+  let lastTradeTimestampMs = resolveTradeTimestampMs({
+    timestamp: config.initialTradeTimestamp ?? null
+  });
 
   let d3svg, xAxisGroup, yAxisGroup, lineGroup, gridGroup, emptyStateText;
   let currentXScale, globalYScale, lineGenerator;
@@ -126,7 +129,9 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       .range([height - margin.bottom, margin.top]);
 
     const yAxisFormatter = getYAxisFormatter();
-    margin.left = getRequiredLeftMargin(globalYScale, yAxisFormatter);
+    margin.left = hideYAxisLabels
+      ? Math.max(20, Math.min(minLeftMargin, 28))
+      : getRequiredLeftMargin(globalYScale, yAxisFormatter);
     syncLayout();
 
     currentXScale = d3
@@ -159,8 +164,8 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       d3
         .axisLeft(globalYScale)
         .ticks(6)
-        .tickFormat(yAxisFormatter)
-        .tickPadding(10)
+        .tickFormat(hideYAxisLabels ? "" : yAxisFormatter)
+        .tickPadding(hideYAxisLabels ? 0 : 10)
     );
     yAxisGroup.select(".domain").remove();
 
@@ -359,6 +364,16 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
     update(snapshot = {}) {
       const now = appendSample(snapshot);
       refreshLiveChart(now);
+    },
+    replaceData(nextData = []) {
+      sortedData = normalizeData(nextData);
+      lastSamplePrice = sortedData.length
+        ? sortedData[sortedData.length - 1].price
+        : null;
+      lastSampleTimeMs = sortedData.length
+        ? sortedData[sortedData.length - 1].date.getTime()
+        : null;
+      refreshLiveChart(new Date());
     }
   };
 }

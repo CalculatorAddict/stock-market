@@ -3,6 +3,7 @@ import { userData } from './data/userData.js';
 import { initPortfolioView } from './components/portfolio.js';
 import { initSearchView } from './components/search.js';
 import { populatePortfolio } from './components/portfolio.js';
+import { ensurePortfolioHistoryHydrated } from './components/portfolio.js';
 import { portfolioPerformanceData } from './data/portfolioPerformance.js';
 import {
   getClientInfoSocketAddresses,
@@ -158,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginSelect.disabled = true;
       loginBtn.style.display = 'none';
       signOutBtn.style.display = 'inline-block';
+      await ensurePortfolioHistoryHydrated();
       connectClientSocket(userData.email);
       populatePortfolio();
     } catch (error) {
@@ -248,8 +250,12 @@ async function connectClientSocket(email) {
     // Update userData with balance
     userData.balance = data.balance;
 
-    // Update userData with portfolioValue
-    userData.portfolioValue = data.portfolioValue;
+    // Keep the backend value as a fallback, but do not overwrite the
+    // live mid-price portfolio value on every client-info tick.
+    userData.serverPortfolioValue = data.portfolioValue;
+    if (!Number.isFinite(userData.portfolioValue) || userData.portfolioValue <= 0) {
+      userData.portfolioValue = data.portfolioValue;
+    }
 
     // Update userData with pnl value
     userData.pnl = data.portfolioPnl.toFixed(2).concat('%');

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from database import ensure_database_exists
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
-from app.price_history import sample_prices
+from app.price_history import sample_portfolio_values, sample_prices
 from app.persistence import persist_orderbook_state, restore_orderbook_state
 from app.shared_constants import DEMO_CLIENTS
 from engine.portfolio_value import PortfolioValue
@@ -26,6 +26,7 @@ async def lifespan(_app: FastAPI):
     ensure_database_exists(seed_clients=DEMO_CLIENTS)
     restore_orderbook_state()
     sample_prices()
+    sample_portfolio_values()
     price_history_task = asyncio.create_task(update_live_price_history())
     hourly_task = asyncio.create_task(update_hourly_stock_data())
     daily_task = asyncio.create_task(update_daily_portfolio_value())
@@ -69,6 +70,12 @@ def _ensure_demo_client(
 ) -> Client:
     existing = Client.get_client_by_username(username)
     if existing is not None:
+        if existing.email != email:
+            Client._clients_by_email.pop(existing.email, None)
+            existing.email = email
+            Client._clients_by_email[email] = existing
+        existing.first_names = first_names
+        existing.last_name = last_name
         existing.balance = max(existing.balance, balance)
         return existing
 
@@ -125,6 +132,7 @@ async def update_hourly_stock_data():
 async def update_live_price_history():
     while True:
         sample_prices()
+        sample_portfolio_values()
         await asyncio.sleep(1)
 
 
