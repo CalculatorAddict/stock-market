@@ -89,7 +89,9 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       .attr("text-anchor", "middle")
       .attr("dominant-baseline", "middle");
 
-    const numTicks = width < 400 ? 4 : 6;
+    const numTicks = width < 400
+      ? (config.mobileXTickCount ?? config.xTickCount ?? 4)
+      : (config.xTickCount ?? 6);
 
     if (!sortedData.length) {
       currentXScale = d3

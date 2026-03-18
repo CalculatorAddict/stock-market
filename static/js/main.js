@@ -28,11 +28,11 @@ function applySignedOutState(loginSelect, loginBtn, signOutBtn) {
   userData.last_name = 'User';
   userData.username = '';
   userData.balance = 0;
+  userData.serverPortfolioValue = null;
   userData.portfolioValue = 0;
   userData.pnl = 'N/A';
   userData.holdings = [];
 
-  document.getElementById('header-pic').src = 'assets/logo.jpg';
   populatePortfolio();
 
   loginSelect.disabled = false;
@@ -144,7 +144,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       userData.first_name = username;
       userData.last_name = username;
       userData.email = email;
-      userData.profilePicUrl = 'assets/logo.jpg';
 
       // Wipe seeded values before live updates
       portfolioPerformanceData.splice(0, portfolioPerformanceData.length);

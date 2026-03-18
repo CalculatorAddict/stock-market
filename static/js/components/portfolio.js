@@ -15,7 +15,7 @@ let portfolioHistoryIdentity = null;
 let portfolioHistoryLoadingIdentity = null;
 let portfolioHistoryRequestVersion = 0;
 const hiddenOrderIds = new Set();
-const PORTFOLIO_UPDATE_INTERVAL_MS = 3000;
+const PORTFOLIO_UPDATE_INTERVAL_MS = 1000;
 const PORTFOLIO_HISTORY_WINDOW_SECONDS = 60;
 
 function toFiniteNumber(value) {
@@ -87,6 +87,64 @@ function recomputeLivePortfolioValue() {
   return getBestAvailablePortfolioValue();
 }
 
+function trimPortfolioPerformanceHistory(now) {
+  const cutoff = now.getTime() - (PORTFOLIO_HISTORY_WINDOW_SECONDS * 1000);
+  while (
+    portfolioPerformanceData.length &&
+    portfolioPerformanceData[0].date.getTime() < cutoff
+  ) {
+    portfolioPerformanceData.shift();
+  }
+}
+
+function syncPortfolioPerformancePoint(currentValue, now = new Date()) {
+  if (!Number.isFinite(currentValue)) {
+    return;
+  }
+
+  const normalizedNow = now instanceof Date ? now : new Date(now);
+  if (!Number.isFinite(normalizedNow.getTime())) {
+    return;
+  }
+
+  trimPortfolioPerformanceHistory(normalizedNow);
+
+  if (!portfolioPerformanceData.length) {
+    portfolioPerformanceData.push({
+      date: new Date(normalizedNow.getTime() - (PORTFOLIO_HISTORY_WINDOW_SECONDS * 1000)),
+      value: currentValue,
+    });
+  }
+
+  const lastEntry = portfolioPerformanceData[portfolioPerformanceData.length - 1];
+  if (lastEntry && lastEntry.date.getTime() === normalizedNow.getTime()) {
+    lastEntry.value = currentValue;
+  } else {
+    portfolioPerformanceData.push({ date: normalizedNow, value: currentValue });
+  }
+
+  trimPortfolioPerformanceHistory(normalizedNow);
+}
+
+function formatPortfolioPnlDisplay() {
+  const currentValue = toFiniteNumber(userData.portfolioValue);
+  if (currentValue === null) {
+    return userData.pnl || 'N/A';
+  }
+
+  const historyBaseline = portfolioPerformanceData.find(
+    (point) => Number.isFinite(point?.date?.getTime?.()) && Number.isFinite(point?.value)
+  );
+  const baselineValue = toFiniteNumber(historyBaseline?.value);
+  if (baselineValue === null || baselineValue <= 0) {
+    return userData.pnl || 'N/A';
+  }
+
+  const pnlPercent = ((currentValue - baselineValue) / baselineValue) * 100;
+  const signPrefix = pnlPercent >= 0 ? '+' : '';
+  return `${signPrefix}${pnlPercent.toFixed(2)}%`;
+}
+
 async function fetchPortfolioValueHistory(windowSeconds = PORTFOLIO_HISTORY_WINDOW_SECONDS) {
   const identityHeaderNames = await getIdentityHeaderNames();
   const response = await fetch(`/api/portfolio_values?window=${windowSeconds}`, {
@@ -120,6 +178,7 @@ function applyTimedPortfolioMarketValue() {
   }
 
   userData.portfolioValue = nextPortfolioValue;
+  syncPortfolioPerformancePoint(nextPortfolioValue);
   updateHeader();
 
   if (headerGraph) {
@@ -160,6 +219,7 @@ async function hydratePortfolioHistory() {
     portfolioPerformanceData.splice(0, portfolioPerformanceData.length, ...history);
     if (history.length) {
       userData.portfolioValue = history[history.length - 1].value;
+      trimPortfolioPerformanceHistory(new Date());
       updateHeader();
     }
 
@@ -202,18 +262,13 @@ function stopLivePortfolioInterval() {
 }
 
 function updateHeader() {
-  const img = document.getElementById('header-pic');
-  img.src = userData.profilePicUrl || 'assets/logo.jpg';
-  img.onerror = () => {
-    img.src = 'assets/logo.jpg';
-  };
-
   const titleEl = document.getElementById('portfolio-title');
   titleEl.textContent = loggedIn
     ? `${userData.name}'s portfolio value:`
     : 'Your portfolio value:';
 
-  const pnlValue = userData.pnl;
+  const pnlValue = formatPortfolioPnlDisplay();
+  userData.pnl = pnlValue;
   const isPositive = pnlValue.startsWith('+');
   document.getElementById('balance-header').textContent = `$${userData.portfolioValue.toFixed(2)}`;
 
@@ -605,6 +660,8 @@ export function initPortfolioView() {
   headerGraph = drawDetailedGraph(graphDiv, loggedIn ? portfolioPerformanceData : [], {
     height: 200,
     yKey: 'value',
+    xTickCount: 4,
+    mobileXTickCount: 3,
     resizeOnWindow: true,
   });
   bindOrderbookRefresh();

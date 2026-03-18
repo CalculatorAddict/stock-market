@@ -6,6 +6,7 @@ export var userData = {
     first_name: "Alice",
     last_name: "Alice",
     balance: 0,
+    serverPortfolioValue: null,
     pnl: "N/A",
     // portfolio in backend
     holdings: [
