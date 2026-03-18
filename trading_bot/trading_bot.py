@@ -67,6 +67,7 @@ class TradingBot(ABC):
         self.actor_email_header = actor_email_header
         self.include_email_header = include_email_header
         self.cancel_url = f"{self.api_url.rsplit('/', 1)[0]}/cancel_order"
+        self.edit_url = f"{self.api_url.rsplit('/', 1)[0]}/edit_order"
         self.running = True
 
     def run(self):

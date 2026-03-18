@@ -179,10 +179,40 @@ class MarketMaker(TradingBot):
             for order in self.ticker_states[ticker]["open_orders"]["sell"].values()
         )
 
+    def tracked_orders_for_side(self, ticker, side):
+        """Return tracked orders for one side of a ticker."""
+        return self.ticker_states[ticker]["open_orders"][side]
+
+    def tracked_order(self, ticker, side):
+        """Return the single tracked order for a side, if any."""
+        orders = self.tracked_orders_for_side(ticker, side)
+        return next(iter(orders.items()), (None, None))
+
+    def track_order(self, ticker, side, order_id, price, volume, total_volume=None):
+        """Replace tracked state so a side has at most one order."""
+        self.ticker_states[ticker]["open_orders"][side] = {
+            order_id: {
+                "price": price,
+                "remaining_volume": volume,
+                "total_volume": volume if total_volume is None else total_volume,
+            }
+        }
+
     def available_inventory(self, ticker):
         """Return inventory that can still be offered for sale."""
         state = self.ticker_states[ticker]
         return max(0, state["inventory"] - self.tracked_sell_volume(ticker))
+
+    def available_inventory_for_side(self, ticker, side):
+        """Return inventory available for a new or replacement order on one side."""
+        if side != "sell":
+            return 0
+
+        _, tracked_order = self.tracked_order(ticker, side)
+        tracked_volume = (
+            tracked_order["remaining_volume"] if tracked_order is not None else 0
+        )
+        return self.available_inventory(ticker) + tracked_volume
 
     def record_fill(self, ticker, side, price, volume):
         """Update inventory, PnL, and fill history after an executed trade."""
@@ -226,6 +256,9 @@ class MarketMaker(TradingBot):
         for side in ("buy", "sell"):
             tracked_orders = state["open_orders"][side]
             for order_id, tracked_order in list(tracked_orders.items()):
+                tracked_order.setdefault(
+                    "total_volume", tracked_order["remaining_volume"]
+                )
                 current_order = active_orders[side].get(order_id)
                 if current_order is None:
                     self.record_fill(
@@ -245,6 +278,12 @@ class MarketMaker(TradingBot):
                         ticker, side, tracked_order["price"], filled_volume
                     )
                 tracked_order["remaining_volume"] = current_order["volume"]
+
+    async def prune_extra_orders_for_side(self, ticker, side):
+        """Cancel any surplus tracked orders so each side keeps one live order."""
+        tracked_orders = list(self.tracked_orders_for_side(ticker, side))
+        for order_id in tracked_orders[1:]:
+            await self.cancel_order(ticker, side, order_id)
 
     def quote_prices(self, best_bid, best_ask, last_price):
         """Generate buy and sell quotes with spread, bias, and crossing logic."""
@@ -324,7 +363,7 @@ class MarketMaker(TradingBot):
 
     async def cancel_orders_for_side(self, ticker, side):
         """Cancel all tracked open orders for one side of a ticker."""
-        open_orders = list(self.ticker_states[ticker]["open_orders"][side])
+        open_orders = list(self.tracked_orders_for_side(ticker, side))
         for order_id in open_orders:
             await self.cancel_order(ticker, side, order_id)
 
@@ -335,6 +374,77 @@ class MarketMaker(TradingBot):
             for order_id in list(state["open_orders"][side]):
                 if random.random() < self.cancel_probability:
                     await self.cancel_order(ticker, side, order_id)
+
+    async def edit_order(self, ticker, side, order_id, price, volume):
+        """Edit one outstanding order through the HTTP API."""
+        tracked_order = self.tracked_orders_for_side(ticker, side).get(order_id)
+        if tracked_order is None:
+            return "missing"
+
+        total_volume = tracked_order.get(
+            "total_volume", tracked_order["remaining_volume"]
+        )
+        executed_volume = total_volume - tracked_order["remaining_volume"]
+        payload = {
+            "order_id": order_id,
+            "price": price,
+            "volume": executed_volume + volume,
+        }
+        headers = self.request_headers()
+
+        def send_request():
+            try:
+                response = requests.post(self.edit_url, json=payload, headers=headers)
+                if response.status_code == 200:
+                    self.track_order(
+                        ticker,
+                        side,
+                        order_id,
+                        price,
+                        volume,
+                        total_volume=payload["volume"],
+                    )
+                    self.log(f"Edited {side} order for {ticker}: {order_id}")
+                    return "edited"
+                if response.status_code == 404:
+                    self.log(f"Order already absent for {ticker}: {order_id}")
+                    return "missing"
+                self.log(
+                    f"Failed to edit order for {ticker}: status={response.status_code} "
+                    f"actor_user={self.client_user} order_id={order_id} "
+                    f"body={response.text}"
+                )
+            except Exception as e:
+                self.log(f"Connection error editing order for {ticker}: {e}")
+            return "failed"
+
+        result = await asyncio.to_thread(send_request)
+        if result == "missing":
+            self.ticker_states[ticker]["open_orders"][side].pop(order_id, None)
+        return result
+
+    async def upsert_quote(self, ticker, side, price, volume):
+        """Maintain at most one live order per side and edit in place when needed."""
+        await self.prune_extra_orders_for_side(ticker, side)
+
+        if volume <= 0:
+            await self.cancel_orders_for_side(ticker, side)
+            return
+
+        order_id, tracked_order = self.tracked_order(ticker, side)
+        if tracked_order is None:
+            await self.place_order(ticker, side, price, volume)
+            return
+
+        if (
+            tracked_order["price"] == price
+            and tracked_order["remaining_volume"] == volume
+        ):
+            return
+
+        result = await self.edit_order(ticker, side, order_id, price, volume)
+        if result == "missing":
+            await self.place_order(ticker, side, price, volume)
 
     def volatility(self, ticker):
         """Estimate annualised volatility from recent reference-price history."""
@@ -364,12 +474,12 @@ class MarketMaker(TradingBot):
                 best_bid, best_ask, last_price
             )
             buy_volume = self.quote_volume()
-            sell_volume = min(self.quote_volume(), self.available_inventory(ticker))
-            await self.cancel_orders_for_side(ticker, "buy")
-            await self.cancel_orders_for_side(ticker, "sell")
-            await self.place_order(ticker, "buy", bid_price, buy_volume)
-            if sell_volume > 0:
-                await self.place_order(ticker, "sell", ask_price, sell_volume)
+            sell_volume = min(
+                self.quote_volume(),
+                self.available_inventory_for_side(ticker, "sell"),
+            )
+            await self.upsert_quote(ticker, "buy", bid_price, buy_volume)
+            await self.upsert_quote(ticker, "sell", ask_price, sell_volume)
             state["next_order_time"] = datetime.now() + timedelta(
                 seconds=self.next_delay()
             )
@@ -387,7 +497,10 @@ class MarketMaker(TradingBot):
             best_bid, best_ask, last_price
         )
         buy_volume = self.quote_volume()
-        sell_volume = min(self.quote_volume(), self.available_inventory(ticker))
+        sell_volume = min(
+            self.quote_volume(),
+            self.available_inventory_for_side(ticker, "sell"),
+        )
 
         side_sequence = ["buy", "sell"] if cross_side != "sell" else ["sell", "buy"]
         order_plan = {
@@ -396,11 +509,8 @@ class MarketMaker(TradingBot):
         }
 
         for side in side_sequence:
-            if side == "sell" and order_plan[side][1] <= 0:
-                continue
-            await self.cancel_orders_for_side(ticker, side)
             price, volume = order_plan[side]
-            await self.place_order(ticker, side, price, volume)
+            await self.upsert_quote(ticker, side, price, volume)
 
         state["next_order_time"] = datetime.now() + timedelta(seconds=self.next_delay())
         print(
@@ -431,10 +541,7 @@ class MarketMaker(TradingBot):
                         order_id = None
 
                     if isinstance(order_id, str):
-                        self.ticker_states[ticker]["open_orders"][side][order_id] = {
-                            "price": price,
-                            "remaining_volume": volume,
-                        }
+                        self.track_order(ticker, side, order_id, price, volume)
                     print(f"\nORDER PLACED FOR {ticker}:")
                     print(f"Side: {side}")
                     print(f"Price: {price}")

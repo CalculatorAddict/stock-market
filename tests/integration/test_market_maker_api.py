@@ -92,7 +92,7 @@ def test_place_order_buy_tracks_open_order_without_mutating_inventory():
     assert state["total_pnl"] == 0
     assert state["trades"] == []
     assert state["open_orders"]["buy"] == {
-        "buy-order-id": {"price": 150.0, "remaining_volume": 2}
+        "buy-order-id": {"price": 150.0, "remaining_volume": 2, "total_volume": 2}
     }
 
 
@@ -112,7 +112,7 @@ def test_place_order_sell_tracks_open_order_without_going_negative():
     assert state["total_pnl"] == 0
     assert state["trades"] == []
     assert state["open_orders"]["sell"] == {
-        "sell-order-id": {"price": 151.0, "remaining_volume": 3}
+        "sell-order-id": {"price": 151.0, "remaining_volume": 3, "total_volume": 3}
     }
 
 
@@ -160,6 +160,33 @@ def test_place_order_can_execute_against_api_endpoint(api_client, monkeypatch):
         order["price"] == 110.0 and order["volume"] == 2
         for order in orderbook_response.json()
     )
+
+
+def test_edit_order_posts_to_edit_endpoint_with_total_volume():
+    bot = _build_bot()
+    bot.ticker_states["OGC"]["open_orders"]["buy"]["buy-order-id"] = {
+        "price": 150.0,
+        "remaining_volume": 2,
+        "total_volume": 5,
+    }
+
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        asyncio.run(bot.edit_order("OGC", "buy", "buy-order-id", 151.0, 4))
+
+    mock_post.assert_called_once_with(
+        bot.edit_url,
+        json={"order_id": "buy-order-id", "price": 151.0, "volume": 7},
+        headers={
+            "X-Actor-User": bot.client_user,
+        },
+    )
+    assert bot.ticker_states["OGC"]["open_orders"]["buy"] == {
+        "buy-order-id": {"price": 151.0, "remaining_volume": 4, "total_volume": 7}
+    }
 
 
 def test_api_rejects_place_order_without_actor_headers(app_module):

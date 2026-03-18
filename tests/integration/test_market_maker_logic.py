@@ -94,13 +94,10 @@ async def test_process_market_update_refreshes_quotes(market_maker, mock_market_
         seconds=1
     )
 
-    async def _cancel_order(ticker, side, order_id):
-        market_maker.ticker_states[ticker]["open_orders"][side].pop(order_id, None)
-        return True
-
-    mock_place_order = AsyncMock()
-    market_maker.place_order = mock_place_order
-    market_maker.cancel_order = AsyncMock(side_effect=_cancel_order)
+    mock_edit_order = AsyncMock(return_value="edited")
+    market_maker.edit_order = mock_edit_order
+    market_maker.place_order = AsyncMock()
+    market_maker.cancel_order = AsyncMock()
     market_maker.quote_prices = MagicMock(return_value=(149.0, 152.0, 0.02, "up", None))
     market_maker.quote_volume = MagicMock(side_effect=[2, 3])
     market_maker.next_delay = MagicMock(return_value=1.0)
@@ -108,22 +105,70 @@ async def test_process_market_update_refreshes_quotes(market_maker, mock_market_
     market_maker.ticker_states["OGC"]["open_orders"]["buy"]["buy-1"] = {
         "price": 149.0,
         "remaining_volume": 2,
+        "total_volume": 2,
     }
     market_maker.ticker_states["OGC"]["open_orders"]["sell"]["sell-1"] = {
         "price": 152.0,
         "remaining_volume": 3,
+        "total_volume": 3,
     }
 
     await market_maker.process_market_update("OGC", market_data)
-    assert mock_place_order.called
-    assert mock_place_order.call_count == 2
-    assert market_maker.cancel_order.await_count == 2
-    assert market_maker.cancel_order.await_args_list[0].args == ("OGC", "buy", "buy-1")
-    assert market_maker.cancel_order.await_args_list[1].args == (
+    assert mock_edit_order.await_count == 0
+    assert market_maker.place_order.await_count == 0
+    assert market_maker.cancel_order.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_process_market_update_edits_existing_quotes_when_target_changes(
+    market_maker, mock_market_data
+):
+    market_data = {
+        **mock_market_data,
+        "all_bids": [
+            {"order_id": "buy-1", "price": 149.0, "volume": 2},
+        ],
+        "all_asks": [
+            {"order_id": "sell-1", "price": 152.0, "volume": 3},
+        ],
+    }
+    market_maker.ticker_states["OGC"]["inventory"] = 5
+    market_maker.ticker_states["OGC"]["inventory_loaded"] = True
+    market_maker.ticker_states["OGC"]["next_order_time"] = datetime.now() - timedelta(
+        seconds=1
+    )
+    market_maker.quote_prices = MagicMock(return_value=(148.5, 152.5, 0.02, "up", None))
+    market_maker.quote_volume = MagicMock(side_effect=[4, 1])
+    market_maker.next_delay = MagicMock(return_value=1.0)
+    market_maker.randomly_cancel_orders = AsyncMock()
+    market_maker.place_order = AsyncMock()
+    market_maker.cancel_order = AsyncMock()
+    mock_edit_order = AsyncMock(return_value="edited")
+    market_maker.edit_order = mock_edit_order
+    market_maker.ticker_states["OGC"]["open_orders"]["buy"]["buy-1"] = {
+        "price": 149.0,
+        "remaining_volume": 2,
+        "total_volume": 2,
+    }
+    market_maker.ticker_states["OGC"]["open_orders"]["sell"]["sell-1"] = {
+        "price": 152.0,
+        "remaining_volume": 3,
+        "total_volume": 3,
+    }
+
+    await market_maker.process_market_update("OGC", market_data)
+
+    assert mock_edit_order.await_count == 2
+    assert mock_edit_order.await_args_list[0].args == ("OGC", "buy", "buy-1", 148.5, 4)
+    assert mock_edit_order.await_args_list[1].args == (
         "OGC",
         "sell",
         "sell-1",
+        152.5,
+        1,
     )
+    assert market_maker.place_order.await_count == 0
+    assert market_maker.cancel_order.await_count == 0
 
 
 def test_quote_prices_can_cross_best_ask(market_maker):
@@ -163,7 +208,7 @@ async def test_place_order(market_maker):
     assert state["inventory"] == 0
     assert state["trades"] == []
     assert state["open_orders"]["buy"] == {
-        "order-1": {"price": 150.0, "remaining_volume": 50}
+        "order-1": {"price": 150.0, "remaining_volume": 50, "total_volume": 50}
     }
 
 
@@ -171,7 +216,11 @@ def test_reconcile_open_orders_records_fill(market_maker):
     state = market_maker.ticker_states["OGC"]
     state["inventory"] = 5
     state["inventory_loaded"] = True
-    state["open_orders"]["sell"]["sell-1"] = {"price": 151.0, "remaining_volume": 3}
+    state["open_orders"]["sell"]["sell-1"] = {
+        "price": 151.0,
+        "remaining_volume": 3,
+        "total_volume": 3,
+    }
 
     market_maker.reconcile_open_orders(
         "OGC",
@@ -186,6 +235,31 @@ def test_reconcile_open_orders_records_fill(market_maker):
     assert state["trades"][0]["side"] == "sell"
     assert state["trades"][0]["volume"] == 3
     assert state["open_orders"]["sell"] == {}
+
+
+@pytest.mark.asyncio
+async def test_upsert_quote_places_when_side_has_no_order(market_maker):
+    market_maker.place_order = AsyncMock()
+
+    await market_maker.upsert_quote("OGC", "buy", 150.0, 2)
+
+    market_maker.place_order.assert_awaited_once_with("OGC", "buy", 150.0, 2)
+
+
+@pytest.mark.asyncio
+async def test_upsert_quote_edits_existing_order(market_maker):
+    market_maker.ticker_states["OGC"]["open_orders"]["buy"]["buy-1"] = {
+        "price": 149.0,
+        "remaining_volume": 2,
+        "total_volume": 5,
+    }
+    market_maker.edit_order = AsyncMock(return_value="edited")
+    market_maker.place_order = AsyncMock()
+
+    await market_maker.upsert_quote("OGC", "buy", 150.0, 4)
+
+    market_maker.edit_order.assert_awaited_once_with("OGC", "buy", "buy-1", 150.0, 4)
+    market_maker.place_order.assert_not_awaited()
 
 
 def test_load_inventory_uses_bot_config(market_maker):
