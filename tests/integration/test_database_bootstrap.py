@@ -4,10 +4,11 @@ from fastapi.testclient import TestClient
 
 from app.shared_constants import DEMO_CLIENTS
 from database import ensure_database_exists
+from models.client import Client
 
 DEFAULT_ACTOR_HEADERS = {
-    "X-Actor-User": "tapple",
-    "X-Actor-Email": "timcook@aol.com",
+    "X-Actor-User": "amorgan",
+    "X-Actor-Email": "alex.morgan@demo.local",
 }
 
 
@@ -69,3 +70,9 @@ def test_app_startup_seeds_demo_clients_on_empty_database(
         email, balance = by_username[demo_client["username"]]
         assert email == demo_client["email"]
         assert balance == demo_client["balance"]
+
+
+def test_app_startup_normalizes_demo_client_identity(app_module):
+    demo_client = Client.get_client_by_username("amorgan")
+    assert demo_client is not None
+    assert demo_client.email == "alex.morgan@demo.local"

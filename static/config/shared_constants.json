@@ -19,63 +19,40 @@
       "TSLA"
     ],
     "opening_prices": {
-      "AAPL": 210,
-      "GOOG": 60,
-      "TSLA": 150
+      "AAPL": 32,
+      "GOOG": 18,
+      "TSLA": 24
     },
     "demo": {
       "title": "Demo access",
-      "description": "Use these demo users to place sample orders in the local environment.",
+      "description": "Use these sample accounts to place orders in the local environment.",
       "default_ticker": "AAPL"
     },
     "demo_clients": [
       {
-        "username": "tapple",
+        "username": "amorgan",
         "password": "pw",
-        "email": "timcook@aol.com",
-        "first_names": "Tim",
-        "last_name": "Cook",
-        "balance": 100000,
+        "email": "alex.morgan@demo.local",
+        "first_names": "Alex",
+        "last_name": "Morgan",
+        "balance": 5000,
         "portfolio": {
-          "AAPL": 1000,
-          "GOOG": 1000,
-          "TSLA": 1000        }
+          "AAPL": 50,
+          "GOOG": 50,
+          "TSLA": 50
+        }
       },
       {
-        "username": "goat",
+        "username": "jlee",
         "password": "pw",
-        "email": "lbj@nba.com",
-        "first_names": "LeBron",
-        "last_name": "James",
-        "balance": 100000,
+        "email": "jordan.lee@demo.local",
+        "first_names": "Jordan",
+        "last_name": "Lee",
+        "balance": 5000,
         "portfolio": {
-          "AAPL": 1000,
-          "GOOG": 1000,
-          "TSLA": 1000        }
-      },
-      {
-        "username": "market_maker",
-        "password": "pw",
-        "email": "market_maker@gmail.com",
-        "first_names": "Market",
-        "last_name": "Maker",
-        "balance": 100000,
-        "portfolio": {
-          "AAPL": 1000,
-          "GOOG": 1000,
-          "TSLA": 1000        }
-      },
-      {
-        "username": "market_maker2",
-        "password": "pw",
-        "email": "market_maker2@gmail.com",
-        "first_names": "Market",
-        "last_name": "Maker2",
-        "balance": 100000,
-        "portfolio": {
-          "AAPL": 1000,
-          "GOOG": 1000,
-          "TSLA": 1000
+          "AAPL": 50,
+          "GOOG": 50,
+          "TSLA": 50
         }
       }
     ]

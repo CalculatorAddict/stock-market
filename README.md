@@ -93,14 +93,14 @@ Rules:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/place_order \
   -H "Content-Type: application/json" \
-  -H "X-Actor-User: tapple" \
-  -H "X-Actor-Email: timcook@aol.com" \
+  -H "X-Actor-User: amorgan" \
+  -H "X-Actor-Email: alex.morgan@demo.local" \
   -d '{
     "ticker":"AAPL",
     "side":"buy",
-    "price":210.0,
+    "price":32.0,
     "volume":2,
-    "client_user":"tapple"
+    "client_user":"amorgan"
   }'
 ```
 
@@ -174,7 +174,13 @@ What it does:
 With server running:
 
 ```bash
-python TradingBot/TradingBot.py
+uv run python TradingBot/TradingBot.py
+```
+
+For a more active demo market, run multiple bot profiles at once:
+
+```bash
+uv run python TradingBot/run_demo_bots.py --bot-count 2
 ```
 
 Bot behavior:
