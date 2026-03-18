@@ -1,139 +1,154 @@
-# Stock Market Simulation Backend
+# Stock Market Demo
 
-FastAPI-based stock market simulator with:
-- in-memory order matching engine
-- SQLite-backed runtime/account storage
-- websocket market streams for frontend and bots
-- pytest test suite split into `unit`, `api`, and `integration`
+Local stock market simulation built with FastAPI, a browser frontend, and an in-memory matching engine backed by SQLite persistence. The project is set up for deterministic demos: seeded accounts, local websocket endpoints, and a smoke script that refuses to kill unrelated processes.
 
-## Core functionality
+## What it does
 
-- Limit and market order placement for `AAPL`, `GOOG`, `TSLA`
-- Order lifecycle operations:
-- `place`, `edit`, `cancel`, `status`
-- Market data queries:
-- best bid/ask, full book levels, volume at price
-- Public transaction feed with anonymized counterparties
-- Client account fetch/create by email
-- WebSocket pushes for:
-- global orderbook summary (`/ws`)
-- per-client balance/portfolio stream (`/client_info`)
-- Startup/shutdown persistence of open limit orders
-- Public UUID IDs at API boundary (internal integer IDs stay private)
+- Matches limit and market orders for `AAPL`, `GOOG`, and `TSLA`
+- Streams market data over `/ws`
+- Streams per-client balance and portfolio updates over `/client_info`
+- Persists open limit orders across app restarts
+- Serves a browser demo UI from `/app`
+- Includes a pytest suite for unit, API, and integration coverage
 
-## Project layout
+## Stack
 
-- `app.py`: ASGI entrypoint (`from app.main import app`)
-- `app/main.py`: FastAPI app setup, lifespan, static mount
-- `app/api.py`: REST endpoint handlers and route registration
-- `app/websocket_routes.py`: websocket handlers
-- `app/persistence.py`: orderbook state restore/persist
-- `engine/`: order book data structure and matching engine
-- `models/`: domain models (`Client`, `Order`, `Transaction`, enums)
-- `TradingBot/`: websocket-driven market-making bot
-- `tests/`: pytest suite (`api/`, `integration/`, `unit/`)
-- `scripts/smoke_demo.sh`: quick end-to-end local smoke run
+- Backend: FastAPI
+- Matching engine: custom in-memory order book and matcher
+- Persistence: SQLite
+- Frontend: static HTML/CSS/JavaScript served by FastAPI
+- Tooling: `uv`, `pytest`
 
-## Requirements
-
-- Python `>=3.13`
-- `uv` for environment/dependency management (recommended)
-
-## Local setup
+## Quick start
 
 ```bash
 uv venv
 source .venv/bin/activate
 uv sync
-```
-
-## Run the app
-
-```bash
 uvicorn app:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-- App root redirects to frontend at `/app`
-- API lives under `/api/*`
+Open `http://127.0.0.1:8000/app`.
 
-## API endpoints
+The API is available under `http://127.0.0.1:8000/api/*`.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/place_order` | Place limit order |
-| `POST` | `/api/market_order` | Place market order |
-| `POST` | `/api/cancel_order` | Cancel existing order |
-| `POST` | `/api/edit_order` | Edit existing order price/volume |
-| `GET` | `/api/order_status` | Get order execution/cancel status |
-| `GET` | `/api/get_best_bid` | Best bid for ticker |
-| `GET` | `/api/get_best_ask` | Best ask for ticker |
-| `GET` | `/api/get_best` | Best bid+ask snapshot |
-| `GET` | `/api/get_volume_at_price` | Aggregated size at price level |
-| `GET` | `/api/get_all_bids` | Full bid side levels |
-| `GET` | `/api/get_all_asks` | Full ask side levels |
-| `GET` | `/api/transactions` | Recent anonymized trades for ticker |
-| `GET` | `/api/get_client_by_email` | Fetch client profile |
-| `POST` | `/api/add_new_client` | Create/fetch client profile |
+## Demo accounts
 
-## Identity and request guardrails
+The local demo is seeded from [static/config/shared_constants.json](/Users/arav/git/stock-market/static/config/shared_constants.json).
 
-Protected routes require actor identity headers:
+- `amorgan` / `alex.morgan@demo.local`
+- `jlee` / `jordan.lee@demo.local`
+- `bot_alpha` / `bot.alpha@demo.local`
+- `bot_beta` / `bot.beta@demo.local`
+
+## Local demo flow
+
+1. Start the app locally on port `8000`.
+2. Open the frontend at `/app`.
+3. Sign in with one of the seeded demo users.
+4. Place orders and watch `/ws` and `/client_info` drive the UI in real time.
+
+For a quick backend sanity check:
+
+```bash
+bash scripts/smoke_demo.sh
+```
+
+The smoke script:
+
+- creates or reuses `.venv`
+- syncs dependencies with `uv`
+- runs `pytest`
+- starts `uvicorn` on `127.0.0.1:8000`
+- calls `GET /api/get_best?ticker=AAPL`
+
+If port `8000` is already occupied, the script exits instead of killing the existing process.
+
+## API overview
+
+Core order endpoints:
+
+- `POST /api/place_order`
+- `POST /api/market_order`
+- `POST /api/edit_order`
+- `POST /api/cancel_order`
+- `GET /api/order_status`
+- `GET /api/open_orders`
+
+Market data endpoints:
+
+- `GET /api/get_best_bid`
+- `GET /api/get_best_ask`
+- `GET /api/get_best`
+- `GET /api/get_volume_at_price`
+- `GET /api/get_all_bids`
+- `GET /api/get_all_asks`
+- `GET /api/transactions`
+- `GET /prices`
+- `GET /api/portfolio_values`
+
+Client/demo endpoints:
+
+- `GET /api/demo`
+- `GET /api/get_client_by_email`
+- `POST /api/add_new_client`
+- `GET /api/client_info_token`
+
+## Identity and websocket auth
+
+Protected REST endpoints use actor headers:
+
 - `X-Actor-User`
 - `X-Actor-Email`
 
-Rules:
-- At least one identity header must be present for protected actions.
-- Actor identity must match the target client for order/account actions.
-- Ticker validation returns `404` for unknown ticker.
-- Side validation returns `400` unless `buy` or `sell`.
-- Non-positive price/volume inputs are rejected with `400`.
+At least one actor header must be present for protected actions, and the actor must match the target client.
 
-## Example requests
+The `/client_info` websocket is also authenticated. Its first message must be a JSON payload with:
 
-```bash
-curl -X POST http://127.0.0.1:8000/api/place_order \
-  -H "Content-Type: application/json" \
-  -H "X-Actor-User: amorgan" \
-  -H "X-Actor-Email: alex.morgan@demo.local" \
-  -d '{
-    "ticker":"AAPL",
-    "side":"buy",
-    "price":32.0,
-    "volume":2,
-    "client_user":"amorgan"
-  }'
+```json
+{
+  "email": "alex.morgan@demo.local",
+  "token": "..."
+}
 ```
 
-```bash
-curl "http://127.0.0.1:8000/api/get_best?ticker=AAPL"
-```
+The token is obtained from `GET /api/client_info_token` after the REST identity check succeeds.
 
-```bash
-curl "http://127.0.0.1:8000/api/transactions?ticker=AAPL&limit=20"
-```
+## Websocket endpoints
 
-## WebSocket endpoints
+- `/ws`: global market stream with best bid/ask, full visible book, last price, timestamps, and pnl summary per ticker
+- `/client_info`: authenticated per-client stream with balance, holdings, portfolio value, and pnl data
 
-- `/ws`: emits periodic map of ticker summaries:
-- best bid/ask, full levels, last price/timestamp, 24h pnl metric
-- `/client_info`: client-specific stream
-- first websocket message must be the client email
-- server then emits balance, portfolio, portfolio value, pnl info
+Frontend websocket addresses are intentionally local-only for deterministic demos.
 
-## Persistence behavior
+## Configuration
 
-- Uses `stock_market_database.db` and `orderbook_state` table.
-- On startup:
-- restores open limit orders from `orderbook_state`
-- clears and rebuilds in-memory order books
-- On shutdown:
-- persists non-terminated open limit orders back to `orderbook_state`
+[static/config/shared_constants.json](/Users/arav/git/stock-market/static/config/shared_constants.json) is the source of truth for:
 
-This keeps runtime orderbook continuity across restarts.
+- identity header names
+- frontend websocket addresses
+- demo and bot accounts
+- tickers and opening prices
+
+Those constants are loaded in backend code through [market_constants.py](/Users/arav/git/stock-market/market_constants.py) and [app/shared_constants.py](/Users/arav/git/stock-market/app/shared_constants.py). [engine/tickers.py](/Users/arav/git/stock-market/engine/tickers.py) remains as a compatibility loader, but the JSON file is the canonical config.
+
+## Project layout
+
+- [app.py](/Users/arav/git/stock-market/app.py): ASGI entrypoint
+- [app/main.py](/Users/arav/git/stock-market/app/main.py): app setup, lifespan, static mount
+- [app/api.py](/Users/arav/git/stock-market/app/api.py): REST handlers and route registration
+- [app/websocket_routes.py](/Users/arav/git/stock-market/app/websocket_routes.py): websocket handlers
+- [app/persistence.py](/Users/arav/git/stock-market/app/persistence.py): restore/persist order book state
+- [engine/](/Users/arav/git/stock-market/engine): matching engine and order book logic
+- [models/](/Users/arav/git/stock-market/models): domain models
+- [static/](/Users/arav/git/stock-market/static): frontend app and shared config
+- [TradingBot/](/Users/arav/git/stock-market/TradingBot): demo bot clients
+- [tests/](/Users/arav/git/stock-market/tests): unit, API, and integration tests
+- [scripts/smoke_demo.sh](/Users/arav/git/stock-market/scripts/smoke_demo.sh): end-to-end local smoke script
 
 ## Testing
 
-Run all tests:
+Run the full suite:
 
 ```bash
 uv run pytest -q
@@ -147,50 +162,16 @@ uv run pytest -m api -q
 uv run pytest -m integration -q
 ```
 
-Test layout:
-- `tests/unit`: pure matching/validation logic
-- `tests/api`: FastAPI TestClient + websocket API behavior
-- `tests/integration`: DB/persistence/trading-bot and cross-component behavior
-
-Notes:
-- Tests isolate DB state via temporary test database wiring in `tests/conftest.py`.
-- Marker config is strict (`--strict-markers`) via `pytest.ini`.
-
-## Smoke demo
-
-```bash
-bash scripts/smoke_demo.sh
-```
-
-What it does:
-- creates/updates venv
-- installs dependencies
-- runs tests
-- starts server with `uvicorn app:app`
-- calls `GET /api/get_best?ticker=AAPL`
-
 ## Trading bot
 
-With server running:
+With the server already running:
 
 ```bash
 uv run python TradingBot/TradingBot.py
 ```
 
-For a more active demo market, run multiple bot profiles at once:
+To run multiple seeded bot profiles:
 
 ```bash
 uv run python TradingBot/run_demo_bots.py --bot-count 2
 ```
-
-Bot behavior:
-- listens to `/ws`
-- computes spread from recent volatility
-- places buy/sell quotes through `/api/place_order`
-- tracks inventory and running pnl
-
-## Configuration
-
-- Tickers and opening prices: `engine/tickers.py`
-- Shared frontend/backend runtime constants: `static/config/shared_constants.json`
-- Backend constant loader: `app/shared_constants.py`
