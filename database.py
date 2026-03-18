@@ -31,7 +31,7 @@
 #   vol INTEGER NOT NULL CHECK(vol > 0),
 #   ticker TEXT NOT NULL,
 #   time_stamp TEXT NOT NULL,
-#   transaction_price REAL NOT NULL CHECK(transaction_price = bid_price OR transaction_price = ask_price)
+#   transaction_price REAL NOT NULL CHECK(transaction_price = bid_price OR transaction_price = ask_price),
 #   CHECK(bid_price >= ask_price),
 #   FOREIGN KEY (bidder_id)
 #       REFERENCES Client (client_id)
@@ -45,13 +45,129 @@
 # CREATE INDEX email_index On Client(email);
 # CREATE INDEX ticker_index On Transactions(ticker);
 # ----------------------------------------------------------------------------------------------------------------------------------------
+from pathlib import Path
 import sqlite3
 from datetime import datetime
+
+DB_PATH = Path("stock_market_database.db")
+CORE_TABLES = ("Client", "OwnedStock", "Transactions")
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS Client(
+  client_id INTEGER PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL UNIQUE,
+  balance REAL NOT NULL CHECK(balance >= 0.00) DEFAULT 100.00,
+  first_names TEXT,
+  last_name TEXT
+);
+
+CREATE TABLE IF NOT EXISTS OwnedStock(
+  owner_id INTEGER,
+  ticker TEXT,
+  average_price REAL NOT NULL CHECK(average_price > 0.00),
+  total_vol INTEGER NOT NULL CHECK(total_vol > 0),
+  PRIMARY KEY(owner_id, ticker),
+  FOREIGN KEY (owner_id)
+      REFERENCES Client (client_id)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION
+);
+
+CREATE TABLE IF NOT EXISTS Transactions(
+  transaction_id INTEGER PRIMARY KEY,
+  bidder_id INTEGER NOT NULL,
+  bid_price REAL NOT NULL CHECK(bid_price > 0.00),
+  asker_id INTEGER NOT NULL,
+  ask_price REAL NOT NULL CHECK(ask_price > 0.00),
+  vol INTEGER NOT NULL CHECK(vol > 0),
+  ticker TEXT NOT NULL,
+  time_stamp TEXT NOT NULL,
+  transaction_price REAL NOT NULL CHECK(transaction_price = bid_price OR transaction_price = ask_price),
+  CHECK(bid_price >= ask_price),
+  FOREIGN KEY (bidder_id)
+      REFERENCES Client (client_id)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION,
+  FOREIGN KEY (asker_id)
+      REFERENCES Client (client_id)
+      ON DELETE CASCADE
+      ON UPDATE NO ACTION
+);
+
+CREATE INDEX IF NOT EXISTS email_index On Client(email);
+CREATE INDEX IF NOT EXISTS ticker_index On Transactions(ticker);
+"""
+
+
+def _core_tables_exist(cursor):
+    cursor.execute(
+        """
+        SELECT name FROM sqlite_master
+        WHERE type = 'table' AND name IN (?, ?, ?)
+        """,
+        CORE_TABLES,
+    )
+    return {row[0] for row in cursor.fetchall()} == set(CORE_TABLES)
+
+
+def _seed_demo_clients(cursor, demo_clients):
+    for demo_client in demo_clients:
+        cursor.execute(
+            """
+            INSERT OR IGNORE INTO Client(username, email, balance, first_names, last_name)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                demo_client["username"],
+                demo_client["email"],
+                demo_client.get("balance", 100),
+                demo_client.get("first_names"),
+                demo_client.get("last_name"),
+            ),
+        )
+        cursor.execute(
+            "SELECT client_id FROM Client WHERE email = ?",
+            (demo_client["email"],),
+        )
+        client_id = cursor.fetchone()[0]
+
+        for ticker, volume in demo_client.get("portfolio", {}).items():
+            cursor.execute(
+                """
+                INSERT OR IGNORE INTO OwnedStock(owner_id, ticker, average_price, total_vol)
+                VALUES (?, ?, 0.01, ?)
+                """,
+                (client_id, ticker, volume),
+            )
+
+
+def ensure_database_exists(seed_clients=None):
+    connection = sqlite3.connect(DB_PATH)
+    cursor = connection.cursor()
+
+    had_core_tables = _core_tables_exist(cursor)
+
+    cursor.executescript(SCHEMA_SQL)
+
+    seeded = False
+    if seed_clients:
+        cursor.execute("SELECT COUNT(*) FROM Client")
+        if cursor.fetchone()[0] == 0:
+            _seed_demo_clients(cursor, seed_clients)
+            seeded = True
+
+    connection.commit()
+    connection.close()
+    return {
+        "created_schema": not had_core_tables,
+        "seeded_demo_clients": seeded,
+    }
+
 
 # Each query should open a database connection, create a cursor and then close the connection, to prevent stale data
 class Database:
     def __init__(self):
-        pass
+        ensure_database_exists()
 
     # create_transaction: Takes information from a bid and ask and store into the database
     # Pre: Data must be validated - asker has the required stock, bidder has the required balance, bid_price >= ask_price, vol > 0, transaction_price == ask_price or transaction_price == bid_price

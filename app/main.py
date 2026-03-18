@@ -6,13 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from datetime import datetime, timedelta
+from database import ensure_database_exists
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.persistence import persist_orderbook_state, restore_orderbook_state
 from app.shared_constants import DEMO_CLIENTS
 from engine.portfolio_value import PortfolioValue
 from engine.order_book import OrderBook
-from engine.tickers import TICKERS
+from market_constants import TICKERS
 from models.client import Client
 
 # Initialize order books
@@ -21,6 +22,7 @@ order_books = [OrderBook(ticker) for ticker in TICKERS]
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    ensure_database_exists(seed_clients=DEMO_CLIENTS)
     restore_orderbook_state()
     hourly_task = asyncio.create_task(update_hourly_stock_data())
     daily_task = asyncio.create_task(update_daily_portfolio_value())
