@@ -4,7 +4,7 @@ Local stock market simulation built with FastAPI, a browser frontend, and an in-
 
 ## What it does
 
-- Matches limit and market orders for `AAPL`, `GOOG`, and `TSLA`
+- Matches limit and market orders for `OGC`, `FIN`, and `DTC`
 - Streams market data over `/ws`
 - Streams per-client balance and portfolio updates over `/client_info`
 - Persists open limit orders across app restarts
@@ -60,7 +60,7 @@ The smoke script:
 - syncs dependencies with `uv`
 - runs `pytest`
 - starts `uvicorn` on `127.0.0.1:8000`
-- calls `GET /api/get_best?ticker=AAPL`
+- calls `GET /api/get_best?ticker=OGC`
 
 If port `8000` is already occupied, the script exits instead of killing the existing process.
 

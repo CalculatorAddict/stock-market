@@ -46,33 +46,33 @@ def test_initialization_can_skip_auto_start():
 
 
 def test_volatility_calculation(bot):
-    assert bot.volatility("AAPL") == 0.1
+    assert bot.volatility("OGC") == 0.1
 
-    bot.ticker_states["AAPL"]["price_history"] = [100, 101, 99, 102, 100]
-    volatility = bot.volatility("AAPL")
+    bot.ticker_states["OGC"]["price_history"] = [100, 101, 99, 102, 100]
+    volatility = bot.volatility("OGC")
     assert isinstance(volatility, float)
     assert volatility > 0
 
 
 @pytest.mark.asyncio
 async def test_market_make_initialization(bot, mock_empty_market):
-    bot.ticker_states["AAPL"]["inventory"] = 3
-    bot.ticker_states["AAPL"]["inventory_loaded"] = True
+    bot.ticker_states["OGC"]["inventory"] = 3
+    bot.ticker_states["OGC"]["inventory_loaded"] = True
     mock_place_order = AsyncMock()
     bot.place_order = mock_place_order
     bot.quote_prices = MagicMock(return_value=(99.0, 101.0, 0.02, None, None))
     bot.quote_volume = MagicMock(side_effect=[2, 4])
 
-    await bot.market_make("AAPL", mock_empty_market)
+    await bot.market_make("OGC", mock_empty_market)
     assert mock_place_order.call_count == 2
 
     calls = mock_place_order.call_args_list
-    assert calls[0].args[0] == "AAPL"
+    assert calls[0].args[0] == "OGC"
     assert calls[0].args[1] == "buy"
     assert calls[0].args[2] == 99.0
     assert calls[0].args[3] == 2
 
-    assert calls[1].args[0] == "AAPL"
+    assert calls[1].args[0] == "OGC"
     assert calls[1].args[1] == "sell"
     assert calls[1].args[2] == 101.0
     assert calls[1].args[3] == 3
@@ -89,9 +89,9 @@ async def test_market_make_normal(bot, mock_market_data):
             {"order_id": "sell-1", "price": 152.0, "volume": 3},
         ],
     }
-    bot.ticker_states["AAPL"]["inventory"] = 5
-    bot.ticker_states["AAPL"]["inventory_loaded"] = True
-    bot.ticker_states["AAPL"]["next_order_time"] = datetime.now() - timedelta(seconds=1)
+    bot.ticker_states["OGC"]["inventory"] = 5
+    bot.ticker_states["OGC"]["inventory_loaded"] = True
+    bot.ticker_states["OGC"]["next_order_time"] = datetime.now() - timedelta(seconds=1)
 
     async def _cancel_order(ticker, side, order_id):
         bot.ticker_states[ticker]["open_orders"][side].pop(order_id, None)
@@ -104,21 +104,21 @@ async def test_market_make_normal(bot, mock_market_data):
     bot.quote_volume = MagicMock(side_effect=[2, 3])
     bot.next_delay = MagicMock(return_value=1.0)
     bot.randomly_cancel_orders = AsyncMock()
-    bot.ticker_states["AAPL"]["open_orders"]["buy"]["buy-1"] = {
+    bot.ticker_states["OGC"]["open_orders"]["buy"]["buy-1"] = {
         "price": 149.0,
         "remaining_volume": 2,
     }
-    bot.ticker_states["AAPL"]["open_orders"]["sell"]["sell-1"] = {
+    bot.ticker_states["OGC"]["open_orders"]["sell"]["sell-1"] = {
         "price": 152.0,
         "remaining_volume": 3,
     }
 
-    await bot.market_make("AAPL", market_data)
+    await bot.market_make("OGC", market_data)
     assert mock_place_order.called
     assert mock_place_order.call_count == 2
     assert bot.cancel_order.await_count == 2
-    assert bot.cancel_order.await_args_list[0].args == ("AAPL", "buy", "buy-1")
-    assert bot.cancel_order.await_args_list[1].args == ("AAPL", "sell", "sell-1")
+    assert bot.cancel_order.await_args_list[0].args == ("OGC", "buy", "buy-1")
+    assert bot.cancel_order.await_args_list[1].args == ("OGC", "sell", "sell-1")
 
 
 def test_quote_prices_can_cross_best_ask(bot):
@@ -152,9 +152,9 @@ async def test_place_order(bot):
         mock_response.json.return_value = "order-1"
         mock_post.return_value = mock_response
 
-        await bot.place_order("AAPL", "buy", 150.0, 50)
+        await bot.place_order("OGC", "buy", 150.0, 50)
 
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     assert state["inventory"] == 0
     assert state["trades"] == []
     assert state["open_orders"]["buy"] == {
@@ -163,13 +163,13 @@ async def test_place_order(bot):
 
 
 def test_reconcile_open_orders_records_fill(bot):
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     state["inventory"] = 5
     state["inventory_loaded"] = True
     state["open_orders"]["sell"]["sell-1"] = {"price": 151.0, "remaining_volume": 3}
 
     bot.reconcile_open_orders(
-        "AAPL",
+        "OGC",
         {
             "all_bids": [],
             "all_asks": [],
@@ -184,20 +184,20 @@ def test_reconcile_open_orders_records_fill(bot):
 
 
 def test_load_inventory_uses_bot_config(bot):
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     state["inventory"] = 0
     state["inventory_loaded"] = False
     bot.client_user = "bot_alpha"
     bot.bot_accounts = TradingBot.load_bot_accounts()
 
-    bot.load_inventory("AAPL")
+    bot.load_inventory("OGC")
 
     assert state["inventory"] == 50
     assert state["inventory_loaded"] is True
 
 
 def test_handle_shutdown(bot):
-    bot.ticker_states["AAPL"]["trades"] = [
+    bot.ticker_states["OGC"]["trades"] = [
         {
             "timestamp": datetime.now(),
             "side": "buy",
@@ -206,8 +206,8 @@ def test_handle_shutdown(bot):
             "pnl": -750,
         }
     ]
-    bot.ticker_states["AAPL"]["total_pnl"] = -750
-    bot.ticker_states["AAPL"]["inventory"] = 50
+    bot.ticker_states["OGC"]["total_pnl"] = -750
+    bot.ticker_states["OGC"]["inventory"] = 50
 
     with patch("sys.exit") as mock_exit:
         bot.handle_shutdown()
@@ -215,18 +215,18 @@ def test_handle_shutdown(bot):
 
 
 def test_log_status(bot):
-    bot.ticker_states["AAPL"]["inventory"] = 50
-    bot.ticker_states["AAPL"]["total_pnl"] = -750
-    bot.ticker_states["AAPL"]["last_price"] = 150.0
+    bot.ticker_states["OGC"]["inventory"] = 50
+    bot.ticker_states["OGC"]["total_pnl"] = -750
+    bot.ticker_states["OGC"]["last_price"] = 150.0
 
     with patch("builtins.print") as mock_print:
-        bot.log_status("AAPL")
+        bot.log_status("OGC")
         assert mock_print.called
 
 
 @pytest.mark.asyncio
 async def test_listen_orderbook(bot):
-    msg = '{"AAPL": {"best_bid": 150.0, "best_ask": 151.0, "last_price": 150.5}}'
+    msg = '{"OGC": {"best_bid": 150.0, "best_ask": 151.0, "last_price": 150.5}}'
 
     mock_ws = AsyncMock()
     mock_ws.__aenter__.return_value = mock_ws
@@ -240,6 +240,6 @@ async def test_listen_orderbook(bot):
         await bot.listen_orderbook()
 
     mock_market_make.assert_called_once_with(
-        "AAPL",
+        "OGC",
         {"best_bid": 150.0, "best_ask": 151.0, "last_price": 150.5},
     )

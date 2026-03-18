@@ -7,7 +7,7 @@ def test_get_best_success(api_client: TestClient):
     bid_1 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 100.0,
             "volume": 1,
@@ -17,7 +17,7 @@ def test_get_best_success(api_client: TestClient):
     bid_2 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 101.5,
             "volume": 2,
@@ -27,7 +27,7 @@ def test_get_best_success(api_client: TestClient):
     ask_1 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 104.0,
             "volume": 1,
@@ -37,7 +37,7 @@ def test_get_best_success(api_client: TestClient):
     ask_2 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 103.0,
             "volume": 2,
@@ -50,7 +50,7 @@ def test_get_best_success(api_client: TestClient):
     assert ask_1.status_code == 200
     assert ask_2.status_code == 200
 
-    response = api_client.get("/api/get_best", params={"ticker": "AAPL"})
+    response = api_client.get("/api/get_best", params={"ticker": "OGC"})
 
     assert response.status_code == 200
     body = response.json()
@@ -63,7 +63,7 @@ def test_get_best_bid_success(api_client: TestClient):
     response_place = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 120.25,
             "volume": 3,
@@ -72,7 +72,7 @@ def test_get_best_bid_success(api_client: TestClient):
     )
     assert response_place.status_code == 200
 
-    response = api_client.get("/api/get_best_bid", params={"ticker": "AAPL"})
+    response = api_client.get("/api/get_best_bid", params={"ticker": "OGC"})
 
     assert response.status_code == 200
     assert response.json() == 120.25
@@ -82,7 +82,7 @@ def test_get_best_ask_success(api_client: TestClient):
     response_place = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 130.75,
             "volume": 2,
@@ -91,7 +91,7 @@ def test_get_best_ask_success(api_client: TestClient):
     )
     assert response_place.status_code == 200
 
-    response = api_client.get("/api/get_best_ask", params={"ticker": "AAPL"})
+    response = api_client.get("/api/get_best_ask", params={"ticker": "OGC"})
 
     assert response.status_code == 200
     assert response.json() == 130.75
@@ -107,7 +107,7 @@ def test_get_best_invalid_ticker(api_client: TestClient):
 def test_get_volume_at_price_rejects_invalid_side(api_client: TestClient):
     response = api_client.get(
         "/api/get_volume_at_price",
-        params={"ticker": "AAPL", "side": "zzz", "price": 1.0},
+        params={"ticker": "OGC", "side": "zzz", "price": 1.0},
     )
 
     assert response.status_code == 400
@@ -131,7 +131,7 @@ def test_static_mount_is_available(api_client: TestClient):
 def test_place_order_returns_422_for_missing_required_fields(api_client: TestClient):
     response = api_client.post(
         "/api/place_order",
-        json={"ticker": "AAPL", "price": 100.0, "volume": 1, "client_user": "amorgan"},
+        json={"ticker": "OGC", "price": 100.0, "volume": 1, "client_user": "amorgan"},
     )
 
     assert response.status_code == 422
@@ -140,7 +140,7 @@ def test_place_order_returns_422_for_missing_required_fields(api_client: TestCli
 def test_market_order_happy_path_no_match_returns_order_id(api_client: TestClient):
     response = api_client.post(
         "/api/market_order",
-        json={"ticker": "AAPL", "side": "buy", "volume": 1, "client_user": "amorgan"},
+        json={"ticker": "OGC", "side": "buy", "volume": 1, "client_user": "amorgan"},
     )
 
     assert response.status_code == 200

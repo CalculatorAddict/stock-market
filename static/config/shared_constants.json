@@ -14,19 +14,19 @@
   },
   "backend": {
     "tickers": [
-      "AAPL",
-      "GOOG",
-      "TSLA"
+      "OGC",
+      "FIN",
+      "DTC"
     ],
     "opening_prices": {
-      "AAPL": 32,
-      "GOOG": 18,
-      "TSLA": 24
+      "OGC": 32,
+      "FIN": 18,
+      "DTC": 24
     },
     "demo": {
       "title": "Demo access",
       "description": "Use these sample accounts to place orders in the local environment.",
-      "default_ticker": "AAPL"
+      "default_ticker": "OGC"
     },
     "demo_clients": [
       {
@@ -37,9 +37,9 @@
         "last_name": "Morgan",
         "balance": 5000,
         "portfolio": {
-          "AAPL": 50,
-          "GOOG": 50,
-          "TSLA": 50
+          "OGC": 50,
+          "FIN": 50,
+          "DTC": 50
         }
       },
       {
@@ -50,9 +50,9 @@
         "last_name": "Lee",
         "balance": 5000,
         "portfolio": {
-          "AAPL": 50,
-          "GOOG": 50,
-          "TSLA": 50
+          "OGC": 50,
+          "FIN": 50,
+          "DTC": 50
         }
       }
     ],
@@ -65,9 +65,9 @@
         "last_name": "Alpha",
         "balance": 5000,
         "portfolio": {
-          "AAPL": 50,
-          "GOOG": 50,
-          "TSLA": 50
+          "OGC": 50,
+          "FIN": 50,
+          "DTC": 50
         }
       },
       {
@@ -78,9 +78,9 @@
         "last_name": "Beta",
         "balance": 5000,
         "portfolio": {
-          "AAPL": 50,
-          "GOOG": 50,
-          "TSLA": 50
+          "OGC": 50,
+          "FIN": 50,
+          "DTC": 50
         }
       }
     ]

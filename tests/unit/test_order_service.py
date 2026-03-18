@@ -6,10 +6,10 @@ from models.order import Order
 
 
 def _init_context():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     client = Client("maker", "pw", "maker@example.com", "Maker", "User")
-    client.portfolio["AAPL"] = 20
+    client.portfolio["OGC"] = 20
 
     return book, client
 
@@ -30,7 +30,7 @@ def test_cancel_order_keeps_book_clean_after_termination():
     result = MatchingEngine.remove_order(book, order, cancelling=True)
 
     assert result == "Order[%d] terminated after 0/5 shares executed" % order_id
-    assert OrderBook.get_all_asks("AAPL") == []
+    assert OrderBook.get_all_asks("OGC") == []
 
 
 def test_edit_order_updates_price_and_volume():
@@ -42,6 +42,6 @@ def test_edit_order_updates_price_and_volume():
 
     assert message == "Order edited"
     assert diff == 3
-    edited_order = book.get_all_asks("AAPL")[0]
+    edited_order = book.get_all_asks("OGC")[0]
     assert edited_order[2] == 110.0
     assert edited_order[3] == 7

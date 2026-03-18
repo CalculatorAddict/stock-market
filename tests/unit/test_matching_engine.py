@@ -5,7 +5,7 @@ from models.enums import BUY as BUY_SIDE, SELL as SELL_SIDE
 from models.order import Order
 
 
-def _build_book_with_clients(ticker="AAPL"):
+def _build_book_with_clients(ticker="OGC"):
     book = OrderBook(ticker)
 
     buyer = Client("buyer", "pw", "buyer@example.com", "Buy", "Er", balance=100_000)
@@ -25,7 +25,7 @@ def test_empty_book_best_is_none():
     book, _, _ = _build_book_with_clients()
 
     assert book._get_best() == (None, None)
-    assert OrderBook.get_best("AAPL") == (None, None)
+    assert OrderBook.get_best("OGC") == (None, None)
 
 
 def test_matching_engine_keeps_multiple_orders_at_same_price_aggregated():
@@ -34,7 +34,7 @@ def test_matching_engine_keeps_multiple_orders_at_same_price_aggregated():
     _place_limit(book, BUY_SIDE, 100.0, 2, buyer1)
     _place_limit(book, BUY_SIDE, 100.0, 3, buyer2)
 
-    assert OrderBook.get_volume_at_price("AAPL", BUY_SIDE, 100.0) == 5
+    assert OrderBook.get_volume_at_price("OGC", BUY_SIDE, 100.0) == 5
 
 
 def test_orderbook_get_best_bid_prefers_highest_price_level():
@@ -43,7 +43,7 @@ def test_orderbook_get_best_bid_prefers_highest_price_level():
     _place_limit(book, BUY_SIDE, 100.0, 1, buyer1)
     _place_limit(book, BUY_SIDE, 102.5, 2, buyer2)
 
-    assert OrderBook.get_best_bid("AAPL") == 102.5
+    assert OrderBook.get_best_bid("OGC") == 102.5
 
 
 class _NoDbTransaction:
@@ -72,23 +72,23 @@ def test_partial_fill_updates_remaining_order_volume(monkeypatch):
 
     assert ask_order.get_volume() == 6
     assert bid_order.volume == 0
-    assert OrderBook.get_best("AAPL") == (None, 101.0)
+    assert OrderBook.get_best("OGC") == (None, 101.0)
     assert book.last_price == 101.0
     assert ask_order.terminated is False
 
 
 def test_unfeasible_first_bid_order_is_cancelled_when_counter_order_arrives():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     buy_only_client = Client("poor_buyer", "pw", "poor@example.com", "Poor", "Buyer", 0)
     sell_client = Client("seller", "pw", "seller@example.com", "Seller", "Able", 0)
-    sell_client.portfolio["AAPL"] = 5
+    sell_client.portfolio["OGC"] = 5
 
     bid_id = _place_limit(book, BUY_SIDE, 100.0, 5, buy_only_client)
     ask_id = _place_limit(book, SELL_SIDE, 100.0, 5, sell_client)
 
-    assert OrderBook.get_all_bids("AAPL") == []
-    assert len(OrderBook.get_all_asks("AAPL")) == 1
+    assert OrderBook.get_all_bids("OGC") == []
+    assert len(OrderBook.get_all_asks("OGC")) == 1
 
     bid_order = Order.get_order_by_id(bid_id)
     ask_order = Order.get_order_by_id(ask_id)
@@ -97,7 +97,7 @@ def test_unfeasible_first_bid_order_is_cancelled_when_counter_order_arrives():
 
 
 def test_unfeasible_first_ask_order_is_cancelled_when_counter_order_arrives():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     buy_client = Client("rich_buyer", "pw", "rich@example.com", "Rich", "Buyer", 10_000)
     no_stock_client = Client(
@@ -107,8 +107,8 @@ def test_unfeasible_first_ask_order_is_cancelled_when_counter_order_arrives():
     ask_id = _place_limit(book, SELL_SIDE, 100.0, 5, no_stock_client)
     bid_id = _place_limit(book, BUY_SIDE, 100.0, 5, buy_client)
 
-    assert OrderBook.get_all_asks("AAPL") == []
-    assert len(OrderBook.get_all_bids("AAPL")) == 1
+    assert OrderBook.get_all_asks("OGC") == []
+    assert len(OrderBook.get_all_bids("OGC")) == 1
 
     ask_order = Order.get_order_by_id(ask_id)
     bid_order = Order.get_order_by_id(bid_id)
@@ -117,18 +117,18 @@ def test_unfeasible_first_ask_order_is_cancelled_when_counter_order_arrives():
 
 
 def test_unfeasible_counter_order_is_retained_when_first_side_is_executable():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     seller = Client(
-        "seller", "pw", "seller@example.com", "Seller", "Able", 0, {"AAPL": 10}
+        "seller", "pw", "seller@example.com", "Seller", "Able", 0, {"OGC": 10}
     )
     poor_buyer = Client("poor_buyer", "pw", "poor@example.com", "Poor", "Buyer", 0)
 
     ask_id = _place_limit(book, SELL_SIDE, 100.0, 5, seller)
     bid_id = _place_limit(book, BUY_SIDE, 100.0, 5, poor_buyer)
 
-    assert len(OrderBook.get_all_asks("AAPL")) == 1
-    assert len(OrderBook.get_all_bids("AAPL")) == 1
+    assert len(OrderBook.get_all_asks("OGC")) == 1
+    assert len(OrderBook.get_all_bids("OGC")) == 1
 
     ask_order = Order.get_order_by_id(ask_id)
     bid_order = Order.get_order_by_id(bid_id)
@@ -137,17 +137,17 @@ def test_unfeasible_counter_order_is_retained_when_first_side_is_executable():
 
 
 def test_note_3_self_matching_orders_are_not_executed():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     trader = Client("self_trader", "pw", "self@example.com", "Self", "Trader")
     trader.balance = 100_000
-    trader.portfolio["AAPL"] = 10
+    trader.portfolio["OGC"] = 10
 
     bid_id = _place_limit(book, BUY_SIDE, 100.0, 5, trader)
     ask_id = _place_limit(book, SELL_SIDE, 100.0, 5, trader)
 
-    assert len(OrderBook.get_all_bids("AAPL")) == 1
-    assert len(OrderBook.get_all_asks("AAPL")) == 1
+    assert len(OrderBook.get_all_bids("OGC")) == 1
+    assert len(OrderBook.get_all_asks("OGC")) == 1
 
     buy_order = Order.get_order_by_id(bid_id)
     sell_order = Order.get_order_by_id(ask_id)
@@ -158,35 +158,35 @@ def test_note_3_self_matching_orders_are_not_executed():
 
 
 def test_note_13_existing_orders_reconcile_when_matchability_changes():
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
 
     buyer = Client("poor_buyer", "pw", "poor@example.com", "Poor", "Buyer", balance=0)
     seller = Client("seller", "pw", "seller@example.com", "Seller", "Able", balance=0)
-    seller.portfolio["AAPL"] = 5
+    seller.portfolio["OGC"] = 5
 
     ask_id = _place_limit(book, SELL_SIDE, 100.0, 3, seller)
     bid_id = _place_limit(book, BUY_SIDE, 100.0, 3, buyer)
 
     bid_order = Order.get_order_by_id(bid_id)
     ask_order = Order.get_order_by_id(ask_id)
-    assert len(OrderBook.get_all_bids("AAPL")) == 1
-    assert len(OrderBook.get_all_asks("AAPL")) == 1
+    assert len(OrderBook.get_all_bids("OGC")) == 1
+    assert len(OrderBook.get_all_asks("OGC")) == 1
     assert bid_order.volume == 3
     assert ask_order.volume == 3
 
     buyer.add_funds(1000)
-    MatchingEngine.match_by_ticker("AAPL")
+    MatchingEngine.match_by_ticker("OGC")
 
     assert bid_order.volume == 0
     assert ask_order.volume == 0
     assert bid_order.terminated
     assert ask_order.terminated
-    assert OrderBook.get_all_bids("AAPL") == []
-    assert OrderBook.get_all_asks("AAPL") == []
+    assert OrderBook.get_all_bids("OGC") == []
+    assert OrderBook.get_all_asks("OGC") == []
 
 
 def test_buyer_partial_fill_then_zero_balance_cancels_remaining_order(monkeypatch):
-    book = OrderBook("AAPL")
+    book = OrderBook("OGC")
     monkeypatch.setattr("engine.matching_engine.Transaction", _NoDbTransaction)
     monkeypatch.setattr(
         MatchingEngine,
@@ -196,7 +196,7 @@ def test_buyer_partial_fill_then_zero_balance_cancels_remaining_order(monkeypatc
 
     buyer = Client("limited_buyer", "pw", "limited@example.com", "Limited", "Buyer", 10)
     seller = Client("liquid_seller", "pw", "seller@example.com", "Liquid", "Seller", 0)
-    seller.portfolio["AAPL"] = 5
+    seller.portfolio["OGC"] = 5
 
     ask_id = _place_limit(book, SELL_SIDE, 10.0, 5, seller)
     bid_id = _place_limit(book, BUY_SIDE, 10.0, 2, buyer)
@@ -205,9 +205,9 @@ def test_buyer_partial_fill_then_zero_balance_cancels_remaining_order(monkeypatc
     bid_order = Order.get_order_by_id(bid_id)
 
     assert buyer.balance == 0
-    assert buyer.portfolio["AAPL"] == 1
+    assert buyer.portfolio["OGC"] == 1
     assert bid_order.terminated is True
     assert bid_order.volume == 1
     assert ask_order.terminated is False
     assert ask_order.volume == 4
-    assert OrderBook.get_all_bids("AAPL") == []
+    assert OrderBook.get_all_bids("OGC") == []

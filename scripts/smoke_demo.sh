@@ -42,7 +42,7 @@ trap cleanup EXIT
 echo "Waiting for server readiness..."
 READY=false
 for _ in {1..15}; do
-  if curl -sSf http://127.0.0.1:8000/api/get_best?ticker=AAPL > "$OUT_FILE"; then
+  if curl -sSf http://127.0.0.1:8000/api/get_best?ticker=OGC > "$OUT_FILE"; then
     READY=true
     break
   fi

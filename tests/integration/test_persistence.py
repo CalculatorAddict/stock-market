@@ -34,7 +34,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_keeps_stat
         response = client.post(
             "/api/place_order",
             json={
-                "ticker": "AAPL",
+                "ticker": "OGC",
                 "side": "buy",
                 "price": 333.0,
                 "volume": 2,
@@ -50,7 +50,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_keeps_stat
     persisted_order_id, ticker, side, order_type, price, volume = rows_after_shutdown[0]
     assert isinstance(persisted_order_id, int)
     assert (ticker, side, order_type, price, volume) == (
-        "AAPL",
+        "OGC",
         "buy",
         "limit",
         333.0,
@@ -61,7 +61,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_keeps_stat
     with TestClient(
         restarted_app_module.app, headers=DEFAULT_ACTOR_HEADERS
     ) as restarted_client:
-        response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
+        response = restarted_client.get("/api/get_all_bids", params={"ticker": "OGC"})
         assert response.status_code == 200
         assert any(
             order["order_id"] == order_id
@@ -76,7 +76,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_keeps_stat
     assert len(rows_after_second_shutdown) == 1
     _, ticker, side, order_type, price, volume = rows_after_second_shutdown[0]
     assert (ticker, side, order_type, price, volume) == (
-        "AAPL",
+        "OGC",
         "buy",
         "limit",
         333.0,
@@ -89,7 +89,7 @@ def test_shutdown_does_not_persist_canceled_orders(app_module):
         response = client.post(
             "/api/place_order",
             json={
-                "ticker": "AAPL",
+                "ticker": "OGC",
                 "side": "buy",
                 "price": 250.0,
                 "volume": 1,

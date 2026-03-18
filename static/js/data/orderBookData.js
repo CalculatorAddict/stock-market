@@ -1,19 +1,19 @@
 // js/data/orderBookData.js
 
 export const orderBookData = {
-    "AAPL": {
+    "OGC": {
       bids: [
       ],
       asks: [
       ]
   },
-  "GOOG": {
+  "FIN": {
       bids: [
       ],
       asks: [
       ]
   },
-  "TSLA": {
+  "DTC": {
       bids: [
       ],
       asks: [

@@ -1,7 +1,7 @@
 //THIS FILE IS ONLY HERE FOR REFEREBCE- IT'S ESSENTIALLY INERT
 
 const stockData = {
-    "AAPL": [
+    "OGC": [
         { date: new Date(2024, 0, 1), price: 100 },
         { date: new Date(2024, 0, 2), price: 105 },
         { date: new Date(2024, 0, 3), price: 102 }
@@ -24,19 +24,19 @@ const stockData = {
 };
 
 const orderBookData = {
-  "AAPL": {
+  "OGC": {
       bids: [
       ],
       asks: [
       ]
   },
-  "GOOG": {
+  "FIN": {
       bids: [
       ],
       asks: [
       ]
   },
-  "TSLA": {
+  "DTC": {
       bids: [
       ],
       asks: [
@@ -375,7 +375,7 @@ async function handleTrade(stock, type, stockBox) {
 
     // Prepare the data to send to the backend
     const tradeData = {
-        ticker: stock, // Stock ticker (e.g., "AAPL")
+        ticker: stock, // Stock ticker (e.g., "OGC")
         side: type, // "buy" or "sell"
         price: parseFloat(limitPriceVal), // Limit price as a float
         volume: parseInt(amountVal, 10), // Volume as an integer

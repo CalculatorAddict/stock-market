@@ -141,7 +141,7 @@ def api_client(app_module):
 
 @pytest.fixture
 def default_ticker():
-    return "AAPL"
+    return "OGC"
 
 
 def pytest_collection_modifyitems(items):

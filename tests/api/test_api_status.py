@@ -5,7 +5,7 @@ def test_order_status_open(api_client):
     order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 210.0,
             "volume": 2,
@@ -30,7 +30,7 @@ def test_order_status_partially_filled(api_client):
         "/api/place_order",
         headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 100.0,
             "volume": 5,
@@ -42,7 +42,7 @@ def test_order_status_partially_filled(api_client):
     buy_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 100.0,
             "volume": 2,
@@ -70,7 +70,7 @@ def test_order_status_filled(api_client):
     buy_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 120.0,
             "volume": 2,
@@ -83,7 +83,7 @@ def test_order_status_filled(api_client):
         "/api/place_order",
         headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 120.0,
             "volume": 2,
@@ -106,7 +106,7 @@ def test_order_status_canceled(api_client):
     order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 130.0,
             "volume": 2,
@@ -143,7 +143,7 @@ def test_order_status_rejects_mismatched_actor(api_client):
         "/api/place_order",
         headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 200.0,
             "volume": 1,
@@ -161,7 +161,7 @@ def test_open_orders_returns_only_authenticated_active_orders(api_client):
     open_order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 90.0,
             "volume": 2,
@@ -173,7 +173,7 @@ def test_open_orders_returns_only_authenticated_active_orders(api_client):
     canceled_order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 89.0,
             "volume": 1,
@@ -189,7 +189,7 @@ def test_open_orders_returns_only_authenticated_active_orders(api_client):
     filled_order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 120.0,
             "volume": 1,
@@ -201,7 +201,7 @@ def test_open_orders_returns_only_authenticated_active_orders(api_client):
         "/api/place_order",
         headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 120.0,
             "volume": 1,
@@ -214,7 +214,7 @@ def test_open_orders_returns_only_authenticated_active_orders(api_client):
         "/api/place_order",
         headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 200.0,
             "volume": 1,

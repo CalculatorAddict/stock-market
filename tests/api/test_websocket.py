@@ -22,7 +22,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     bid_1 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 200.0,
             "volume": 1,
@@ -32,7 +32,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     bid_2 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 201.0,
             "volume": 1,
@@ -42,7 +42,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     ask_1 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 203.0,
             "volume": 1,
@@ -52,7 +52,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     ask_2 = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "sell",
             "price": 202.0,
             "volume": 1,
@@ -68,8 +68,8 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
         payload = json.loads(websocket.receive_text())
 
     assert payload.keys() == set(TICKERS)
-    aapl_snapshot = payload["AAPL"]
-    assert aapl_snapshot["ticker"] == "AAPL"
+    aapl_snapshot = payload["OGC"]
+    assert aapl_snapshot["ticker"] == "OGC"
     assert isinstance(aapl_snapshot["all_bids"], list)
     assert isinstance(aapl_snapshot["all_asks"], list)
     assert aapl_snapshot["best_bid"] == 201.0
@@ -102,7 +102,7 @@ def test_orderbook_state_persists_across_testclient_restarts(
         response = first_client.post(
             "/api/place_order",
             json={
-                "ticker": "AAPL",
+                "ticker": "OGC",
                 "side": "buy",
                 "price": 250.0,
                 "volume": 1,
@@ -116,7 +116,7 @@ def test_orderbook_state_persists_across_testclient_restarts(
     with TestClient(
         restarted_app_module.app, headers=DEFAULT_ACTOR_HEADERS
     ) as restarted_client:
-        response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
+        response = restarted_client.get("/api/get_all_bids", params={"ticker": "OGC"})
 
     assert response.status_code == 200
     assert any(

@@ -30,12 +30,12 @@ def test_place_order_posts_to_configured_endpoint_with_expected_payload():
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        asyncio.run(bot.place_order("AAPL", "buy", 150.0, 5))
+        asyncio.run(bot.place_order("OGC", "buy", 150.0, 5))
 
     mock_post.assert_called_once_with(
         bot.api_url,
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 150.0,
             "volume": 5,
@@ -59,12 +59,12 @@ def test_place_order_includes_email_header_when_configured():
         mock_response.status_code = 200
         mock_post.return_value = mock_response
 
-        asyncio.run(bot.place_order("AAPL", "buy", 150.0, 5))
+        asyncio.run(bot.place_order("OGC", "buy", 150.0, 5))
 
     mock_post.assert_called_once_with(
         bot.api_url,
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 150.0,
             "volume": 5,
@@ -86,9 +86,9 @@ def test_place_order_buy_tracks_open_order_without_mutating_inventory():
         mock_response.json.return_value = "buy-order-id"
         mock_post.return_value = mock_response
 
-        asyncio.run(bot.place_order("AAPL", "buy", 150.0, 2))
+        asyncio.run(bot.place_order("OGC", "buy", 150.0, 2))
 
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     assert state["inventory"] == 0
     assert state["total_pnl"] == 0
     assert state["trades"] == []
@@ -106,9 +106,9 @@ def test_place_order_sell_tracks_open_order_without_going_negative():
         mock_response.json.return_value = "sell-order-id"
         mock_post.return_value = mock_response
 
-        asyncio.run(bot.place_order("AAPL", "sell", 151.0, 3))
+        asyncio.run(bot.place_order("OGC", "sell", 151.0, 3))
 
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     assert state["inventory"] == 0
     assert state["total_pnl"] == 0
     assert state["trades"] == []
@@ -126,9 +126,9 @@ def test_place_order_does_not_update_state_on_http_failure():
         mock_response.text = "bad request"
         mock_post.return_value = mock_response
 
-        asyncio.run(bot.place_order("AAPL", "buy", 200.0, 1))
+        asyncio.run(bot.place_order("OGC", "buy", 200.0, 1))
 
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     assert state["inventory"] == 0
     assert state["total_pnl"] == 0
     assert state["trades"] == []
@@ -148,14 +148,14 @@ def test_place_order_can_execute_against_api_endpoint(api_client, monkeypatch):
 
     monkeypatch.setattr("TradingBot.TradingBot.requests.post", _post_to_test_client)
 
-    asyncio.run(bot.place_order("AAPL", "buy", 110.0, 2))
+    asyncio.run(bot.place_order("OGC", "buy", 110.0, 2))
 
-    state = bot.ticker_states["AAPL"]
+    state = bot.ticker_states["OGC"]
     assert state["inventory"] == 0
     assert state["trades"] == []
     assert len(state["open_orders"]["buy"]) == 1
 
-    orderbook_response = api_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
+    orderbook_response = api_client.get("/api/get_all_bids", params={"ticker": "OGC"})
     assert orderbook_response.status_code == 200
     assert any(
         order["price"] == 110.0 and order["volume"] == 2
@@ -168,7 +168,7 @@ def test_api_rejects_place_order_without_actor_headers(app_module):
         response = client.post(
             "/api/place_order",
             json={
-                "ticker": "AAPL",
+                "ticker": "OGC",
                 "side": "buy",
                 "price": 110.0,
                 "volume": 1,

@@ -579,7 +579,7 @@ async def get_demo() -> dict:
                 "Use the listed demo users for local testing.",
             )
         ),
-        "default_ticker": str(DEMO_API_INFO.get("default_ticker", "AAPL")),
+        "default_ticker": str(DEMO_API_INFO.get("default_ticker", "OGC")),
         "accounts": demo_accounts,
     }
 

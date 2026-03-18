@@ -135,7 +135,7 @@ async def update_daily_portfolio_value():
 # # AR(1) parameters
 # PHI         = 0.97
 # SIGMA       = 0.3
-# MIDS        = {"AAPL":180.0, "GOOG":50.0, "TSLA":12.0}
+# MIDS        = {"OGC":180.0, "FIN":50.0, "DTC":12.0}
 # SPREAD_BPS  = 20
 # TICK_SECONDS = 0.5
 # _last_price   = {ob.ticker: MIDS[ob.ticker] for ob in order_books}

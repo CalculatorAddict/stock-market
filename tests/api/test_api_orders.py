@@ -7,7 +7,7 @@ def test_place_order_happy_path(api_client: TestClient):
     response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 250.0,
             "volume": 1,
@@ -39,7 +39,7 @@ def test_place_order_invalid_side(api_client: TestClient):
     response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "up",
             "price": 250.0,
             "volume": 1,
@@ -54,7 +54,7 @@ def test_place_order_rejects_non_positive_price(api_client: TestClient):
     response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 0.0,
             "volume": 1,
@@ -69,7 +69,7 @@ def test_market_order_invalid_volume(api_client: TestClient):
     response = api_client.post(
         "/api/market_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "volume": 0,
             "client_user": "amorgan",
@@ -83,7 +83,7 @@ def test_cancel_order_happy_path_and_structure(api_client: TestClient):
     order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 251.0,
             "volume": 1,
@@ -111,7 +111,7 @@ def test_edit_order_happy_path_and_structure(api_client: TestClient):
     order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 252.0,
             "volume": 1,
@@ -137,7 +137,7 @@ def test_edit_order_invalid_price_or_volume(api_client: TestClient):
     order_response = api_client.post(
         "/api/place_order",
         json={
-            "ticker": "AAPL",
+            "ticker": "OGC",
             "side": "buy",
             "price": 254.0,
             "volume": 1,
