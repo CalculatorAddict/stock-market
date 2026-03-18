@@ -73,26 +73,30 @@ export function openStockDetail(stockName) {
 
   // Close handlers
   modal.querySelector('.close-button').addEventListener('click', () => {
+    delete activeStockGraphs[stockName];
     document.body.removeChild(modal);
   });
   modal.addEventListener('click', e => {
-    if (e.target === modal)
+    if (e.target === modal) {
+      delete activeStockGraphs[stockName];
       document.body.removeChild(modal);
+    }
   });
 
   // Draw the chart once modal is in DOM
   const graphContainer = modal.querySelector('.graph-container');
   setTimeout(() => {
-    drawDetailedGraph(
+    const graph = drawDetailedGraph(
       graphContainer,
       stockDataPrices[stockName],
       {
         height: 200,
         yKey: 'price',
         resizeOnWindow: false,
-        margin: { top: 20, right: 20, bottom: 40, left: 35 }
+        margin: { left: 68 }
       }
     );
+    activeStockGraphs[stockName] = graph;
   }, 0);
 
   // Show/hide limit price input on order-type change
@@ -115,7 +119,7 @@ export function openStockDetail(stockName) {
   // Toggle order book section
   const toggleBtn        = modal.querySelector('#toggle-order-book-btn');
   const orderBookSection = modal.querySelector('.order-book-section');
-  const bookContainer    = modal.querySelector('#order-book-container');
+  const bookContainer    = modal.querySelector(`#order-book-${stockName}-container`);
 
   toggleBtn.addEventListener('click', () => {
     const showing = orderBookSection.style.display === 'block';
@@ -225,6 +229,11 @@ async function handleOrder(stockName, orderType, modal) {
 // WebSocket for live order book updates
 let socket = null;
 const stockDataDynamic = {};
+const activeStockGraphs = {};
+
+export function getLiveOrderbookSnapshots() {
+  return stockDataDynamic;
+}
 
 function bindOrderbookSocketMessageHandler(activeSocket) {
   activeSocket.addEventListener("message", event => {
@@ -239,8 +248,24 @@ function bindOrderbookSocketMessageHandler(activeSocket) {
     const history   = stockDataPrices[ticker];
     const lastEntry = history[history.length - 1];
 
-    if (Date.parse(lastEntry.date) != Date.parse(lastDate)) {
-      history.push({ date: lastDate, price: stockDataDynamic[ticker].last_price });
+    const nextPrice = Number(stockDataDynamic[ticker].last_price);
+    if (
+      Number.isFinite(lastDate.getTime()) &&
+      Number.isFinite(nextPrice) &&
+      Date.parse(lastEntry.date) != Date.parse(lastDate)
+    ) {
+      history.push({ date: lastDate, price: nextPrice });
+    }
+
+    const liveGraph = activeStockGraphs[ticker];
+    if (liveGraph) {
+      liveGraph.update({
+        price: stockDataDynamic[ticker].last_price,
+        best_bid: stockDataDynamic[ticker].best_bid,
+        best_ask: stockDataDynamic[ticker].best_ask,
+        timestamp: stockDataDynamic[ticker].last_timestamp,
+        server_time: stockDataDynamic[ticker].server_time,
+      });
     }
 
     // If order book is visible, refresh it
@@ -249,6 +274,7 @@ function bindOrderbookSocketMessageHandler(activeSocket) {
       populateOrderBook(bookContainer, stockDataDynamic[ticker]);
     }
   });
+  window.dispatchEvent(new CustomEvent('orderbook-updated'));
   });
 }
 

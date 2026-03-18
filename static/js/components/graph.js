@@ -1,256 +1,346 @@
 export function drawDetailedGraph(containerElement, data, config = {}) {
-  const margin = config.margin || { top: 20, right: 20, bottom: 40, left: 50 };
+  const defaultMargin = { top: 20, right: 20, bottom: 40, left: 68 };
+  const margin = { ...defaultMargin, ...(config.margin || {}) };
+  const valueKey = config.yKey || "value";
+  const clipId = `clip-${Math.random().toString(36).slice(2)}`;
+  const liveWindowMs = config.liveWindowMs || 60_000;
 
-  // Keep mutable values in closure so the updater can mutate them in-place
+  // Keep mutable values in closure so update() can append one sample at a time.
   let width = config.width || containerElement.clientWidth || 600;
   let height = config.height || 300;
-  let sortedData = [...data].sort((a, b) => a.date - b.date);
+  let sortedData = normalizeData(data);
+  let lastSamplePrice = sortedData.length
+    ? sortedData[sortedData.length - 1].price
+    : null;
+  let lastSampleTimeMs = sortedData.length
+    ? sortedData[sortedData.length - 1].date.getTime()
+    : null;
+  let lastTradeTimestampMs = null;
 
-  // UI state
-  let currentRange = 'Max';
-
-  // D3 handles
-  let d3svg, xAxisGroup, yAxisGroup, lineGroup, gridGroup, dragRect;
+  let d3svg, xAxisGroup, yAxisGroup, lineGroup, gridGroup, emptyStateText;
   let currentXScale, globalYScale, lineGenerator;
-  let togglesDiv;
-
-  // We build the DOM once and afterwards only update the bits that need it
   let firstBuild = true;
-  let formatX;
+  const xTickFormat = d3.timeFormat("%H:%M:%S");
 
   function render() {
     width = config.width || containerElement.clientWidth || 600;
     height = config.height || 300;
 
-    const xDomain = getXDomain(currentRange, sortedData);
-
-    // ────────────────────── one-time DOM build ──────────────────────
     if (firstBuild) {
-      containerElement.innerHTML = '';
+      containerElement.innerHTML = "";
 
-      // Time-frame buttons
-      togglesDiv = document.createElement('div');
-      togglesDiv.classList.add('timeframe-toggles');
-      const timeFrames = ['1D', '1W', '1M', '6M', '1Y', 'Max'];
-      timeFrames.forEach(tf => {
-        const btn = document.createElement('button');
-        btn.textContent = tf;
-        btn.classList.add('timeframe-btn');
-        btn.dataset.range = tf;
-        togglesDiv.appendChild(btn);
-      });
-
-      const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svgEl.classList.add('portfolio-graph');
+      const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svgEl.classList.add("portfolio-graph");
       containerElement.appendChild(svgEl);
-      containerElement.appendChild(togglesDiv);
 
-      d3svg = d3.select(svgEl).attr('width', width).attr('height', height);
+      d3svg = d3.select(svgEl).attr("width", width).attr("height", height);
 
-      // Axes & groups
-      xAxisGroup = d3svg.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${height - margin.bottom})`);
+      xAxisGroup = d3svg
+        .append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0,${height - margin.bottom})`);
 
-      yAxisGroup = d3svg.append('g')
-        .attr('class', 'y-axis')
-        .attr('transform', `translate(${margin.left},0)`);
+      yAxisGroup = d3svg
+        .append("g")
+        .attr("class", "y-axis")
+        .attr("transform", `translate(${margin.left},0)`);
 
-      gridGroup = d3svg.append('g').attr('class', 'y-grid');
-      lineGroup = d3svg.append('g').attr('class', 'line-group');
+      gridGroup = d3svg.append("g").attr("class", "y-grid");
+      lineGroup = d3svg.append("g").attr("class", "line-group");
+      emptyStateText = d3svg.append("text").attr("class", "graph-empty-text");
 
-      // Clip path
-      d3svg.append('clipPath').attr('id', 'clip')
-        .append('rect')
-        .attr('x', margin.left)
-        .attr('y', margin.top)
-        .attr('width', width - margin.left - margin.right)
-        .attr('height', height - margin.top - margin.bottom);
+      d3svg
+        .append("clipPath")
+        .attr("id", clipId)
+        .append("rect")
+        .attr("x", margin.left)
+        .attr("y", margin.top)
+        .attr("width", width - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom);
 
-      lineGroup.attr('clip-path', 'url(#clip)');
+      lineGroup.attr("clip-path", `url(#${clipId})`);
 
-      // Drag rectangle for panning
-      dragRect = d3svg.append('rect')
-        .attr('fill', 'transparent')
-        .style('cursor', 'move')
-        .call(d3.drag().on('start', dragStart).on('drag', dragMove));
-
-      // Button wiring
-      togglesDiv.querySelectorAll('.timeframe-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentRange = btn.dataset.range;
-          togglesDiv.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          render();
-        });
-      });
-      togglesDiv.querySelector('[data-range="Max"]').classList.add('active');
-
-      // Live resize support
       if (config.resizeOnWindow) {
-        window.addEventListener('resize', render);
+        window.addEventListener("resize", render);
       }
 
       firstBuild = false;
     } else {
-      // Update dimensions & transforms
-      d3svg.attr('width', width).attr('height', height);
-      xAxisGroup.attr('transform', `translate(0,${height - margin.bottom})`);
-      yAxisGroup.attr('transform', `translate(${margin.left},0)`);
-      d3svg.select('clipPath#clip rect')
-        .attr('width', width - margin.left - margin.right)
-        .attr('height', height - margin.top - margin.bottom);
+      d3svg.attr("width", width).attr("height", height);
+      xAxisGroup.attr("transform", `translate(0,${height - margin.bottom})`);
+      yAxisGroup.attr("transform", `translate(${margin.left},0)`);
+      d3svg
+        .select(`clipPath#${clipId} rect`)
+        .attr("width", width - margin.left - margin.right)
+        .attr("height", height - margin.top - margin.bottom);
     }
 
-    // Drag rectangle always needs fresh size
-    dragRect
-      .attr('x', margin.left)
-      .attr('y', margin.top)
-      .attr('width', width - margin.left - margin.right)
-      .attr('height', height - margin.top - margin.bottom);
+    refreshLiveChart(new Date());
+  }
 
-    // ────────────────────── scales ──────────────────────
-    currentXScale = d3.scaleTime().domain(xDomain).range([margin.left, width - margin.right]);
+  function refreshLiveChart(now) {
+    const xDomain = getRollingDomain(now);
+    trimOlderThan(xDomain[0]);
 
-    const visible = sortedData.filter(d => d.date >= xDomain[0] && d.date <= xDomain[1]);
-    const yData = visible.length ? visible : sortedData;
-    const yMin = d3.min(yData, d => d[config.yKey || 'value'] || d.price);
-    const yMax = d3.max(yData, d => d[config.yKey || 'value'] || d.price);
-    const yPad = (yMax - yMin) * 0.02;
+    currentXScale = d3
+      .scaleTime()
+      .domain(xDomain)
+      .range([margin.left, width - margin.right]);
 
-    globalYScale = d3.scaleLinear()
+    emptyStateText
+      .attr("x", width / 2)
+      .attr("y", height / 2)
+      .attr("text-anchor", "middle")
+      .attr("dominant-baseline", "middle");
+
+    const numTicks = width < 400 ? 4 : 6;
+    xAxisGroup.call(
+      d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
+    );
+
+    if (!sortedData.length) {
+      lineGroup.selectAll("path").remove();
+      yAxisGroup.selectAll("*").remove();
+      gridGroup.selectAll("*").remove();
+      emptyStateText.text(config.emptyText || "No data yet").attr("display", null);
+      return;
+    }
+
+    emptyStateText.attr("display", "none");
+
+    const visibleData = sortedData.filter(
+      (point) => point.date >= xDomain[0] && point.date <= xDomain[1]
+    );
+    const lineData = visibleData.length
+      ? visibleData
+      : [
+          { date: xDomain[0], price: sortedData[sortedData.length - 1].price },
+          { date: xDomain[1], price: sortedData[sortedData.length - 1].price },
+        ];
+    const yData = lineData;
+
+    const yMin = d3.min(yData, (point) => point.price);
+    const yMax = d3.max(yData, (point) => point.price);
+    const yPad = calculateYPadding(yMin, yMax);
+
+    globalYScale = d3
+      .scaleLinear()
       .domain([yMin - yPad, yMax + yPad])
       .range([height - margin.bottom, margin.top]);
 
-    const isGain = yData[yData.length - 1][config.yKey || 'value'] >= yData[0][config.yKey || 'value'];
+    const isGain =
+      lineData[lineData.length - 1].price >= lineData[0].price;
 
-    lineGenerator = d3.line()
-      .x(d => currentXScale(d.date))
-      .y(d => globalYScale(d[config.yKey || 'value']));
+    lineGenerator = d3
+      .line()
+      .x((point) => currentXScale(point.date))
+      .y((point) => globalYScale(point.price));
 
-    // ────────────────────── draw / update line ──────────────────────
-    lineGroup.selectAll('path')
-      .data([sortedData]) // one line → single datum wrapped in array
-      .join('path')      // enter/update
-        .attr('fill', 'none')
-        .attr('stroke', isGain ? '#28a745' : '#dc3545')
-        .attr('stroke-width', 3)
-        .attr('d', lineGenerator);
+    lineGroup
+      .selectAll("path")
+      .data([lineData])
+      .join("path")
+      .attr("fill", "none")
+      .attr("stroke", isGain ? "#28a745" : "#dc3545")
+      .attr("stroke-width", 3)
+      .attr("d", lineGenerator);
 
-     // ────────────────────── axes & grid ──────────────────────
-    const numTicks = width < 400 ? 3 : 6;
-    formatX = d => {
-      const diff = currentXScale.domain()[1] - currentXScale.domain()[0];
-      if (diff < 86400000)      return d3.timeFormat('%H:%M')(d);          // < 1 day
-      if (diff < 2592000000)    return d3.timeFormat('%b %d %H:%M')(d);    // < 30 days
-      return d3.timeFormat('%b %d')(d);
-    };
-
-    xAxisGroup.call(d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(formatX));
-    yAxisGroup.call(d3.axisLeft(globalYScale).ticks(6).tickFormat(d3.format('.2s')));
-    yAxisGroup.select('.domain').remove();
-
-    // Grid
-    gridGroup.attr('transform', `translate(${margin.left},0)`).call(
-      d3.axisLeft(globalYScale)
+    const yAxisFormatter = getYAxisFormatter();
+    yAxisGroup.call(
+      d3
+        .axisLeft(globalYScale)
         .ticks(6)
-        .tickSize(-(width - margin.left - margin.right))
-        .tickFormat('')
+        .tickFormat(yAxisFormatter)
+        .tickPadding(10)
     );
-    gridGroup.selectAll('line').attr('stroke', 'grey').attr('stroke-opacity', 0.2);
-    gridGroup.select('path').remove();
+    yAxisGroup.select(".domain").remove();
+
+    gridGroup
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(
+        d3
+          .axisLeft(globalYScale)
+          .ticks(6)
+          .tickSize(-(width - margin.left - margin.right))
+          .tickFormat("")
+      );
+    gridGroup.selectAll("line").attr("stroke", "grey").attr("stroke-opacity", 0.2);
+    gridGroup.select("path").remove();
   }
 
-  // ────────────────────── helpers ──────────────────────
-  function getXDomain(range, data) {
-    const latest = d3.max(data, d => d.date);
-    switch (range) {
-      case '1D': return [new Date(latest - 86400000), latest];
-      case '1W': return [new Date(latest - 7 * 86400000), latest];
-      case '1M': return [new Date(latest - 30 * 86400000), latest];
-      case '6M': return [new Date(latest - 180 * 86400000), latest];
-      case '1Y': return [new Date(latest - 365 * 86400000), latest];
-      case 'Max':
-      default:   return d3.extent(data, d => d.date);
+  // Rolling window: x-axis always represents "now - window" to "now".
+  function getRollingDomain(now) {
+    return [new Date(now.getTime() - liveWindowMs), now];
+  }
+
+  function trimOlderThan(cutoff) {
+    while (sortedData.length && sortedData[0].date < cutoff) {
+      sortedData.shift();
     }
   }
 
-  function dragStart(event) {
-    dragStart.x = event.x;
-    dragStart.domain = currentXScale.domain();
+  // We sample every tick instead of only trades so time is continuous:
+  // no-trade periods still produce a flat line, and trade changes appear as jumps.
+  function resolveSnapshotPrice(snapshot, previousPrice, hasNewTrade) {
+    if (Array.isArray(snapshot)) {
+      const normalized = normalizeData(snapshot);
+      const lastPoint = normalized[normalized.length - 1];
+      return lastPoint ? lastPoint.price : previousPrice;
+    }
+
+    if (snapshot?.force_price) {
+      const forcedPrice = firstFinite(snapshot?.price);
+      if (forcedPrice !== null) {
+        return forcedPrice;
+      }
+    }
+
+    if (hasNewTrade) {
+      const tradePrice = firstFinite(
+        snapshot?.price,
+        snapshot?.last_trade_price,
+        snapshot?.last_price,
+        snapshot?.trade_price
+      );
+      if (tradePrice !== null) {
+        return tradePrice;
+      }
+    }
+
+    const bestBid = toFiniteNumber(snapshot?.best_bid);
+    const bestAsk = toFiniteNumber(snapshot?.best_ask);
+    if (bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0) {
+      return (bestBid + bestAsk) / 2;
+    }
+
+    return previousPrice;
   }
 
-  function dragMove(event) {
-    const dx = event.x - dragStart.x;
-    const span = dragStart.domain[1] - dragStart.domain[0];
-    const offset = dx / (width - margin.left - margin.right) * span;
-    const newDomain = [
-      new Date(dragStart.domain[0].getTime() - offset),
-      new Date(dragStart.domain[1].getTime() - offset)
-    ];
-    currentXScale.domain(newDomain);
+  function appendSample(snapshot) {
+    // Sample time represents the websocket tick time (chart x-axis), not last trade time.
+    let now = resolveSampleTime(snapshot?.server_time);
+    if (lastSampleTimeMs !== null && now.getTime() <= lastSampleTimeMs) {
+      now = new Date(lastSampleTimeMs + 1);
+    }
+    const hasNewTrade = didReceiveNewTrade(snapshot);
+    const nextPrice = resolveSnapshotPrice(snapshot, lastSamplePrice, hasNewTrade);
 
-    const updatedTicks = width < 400 ? 3 : 6;
-    xAxisGroup.call(
-      d3.axisBottom(currentXScale)
-        .ticks(updatedTicks)
-        .tickFormat(d => {
-          const diff = currentXScale.domain()[1] - currentXScale.domain()[0];
-          if (diff < 86400000) return d3.timeFormat('%H:%M')(d);
-          if (diff < 2592000000) return d3.timeFormat('%b %d %H:%M')(d);
-          return d3.timeFormat('%b %d')(d);
-        })
-    );
+    if (nextPrice !== null) {
+      sortedData.push({ date: now, price: nextPrice });
+      lastSamplePrice = nextPrice;
+      lastSampleTimeMs = now.getTime();
+    }
 
-    updateYAxisAndLine();
+    trimOlderThan(new Date(now.getTime() - liveWindowMs));
+    return now;
   }
 
-  function updateYAxisAndLine() {
-    const visible = sortedData.filter(d => d.date >= currentXScale.domain()[0] && d.date <= currentXScale.domain()[1]);
-    const yData = visible.length ? visible : sortedData;
-    const min = d3.min(yData, d => d[config.yKey || 'value'] || d.price);
-    const max = d3.max(yData, d => d[config.yKey || 'value'] || d.price);
-    const pad = (max - min) * 0.02;
-    globalYScale.domain([min - pad, max + pad]);
-
-    yAxisGroup.call(d3.axisLeft(globalYScale).ticks(6).tickFormat(d3.format('.2s')));
-    yAxisGroup.select('.domain').remove();
-
-    gridGroup.call(
-      d3.axisLeft(globalYScale)
-        .ticks(6)
-        .tickSize(-(width - margin.left - margin.right))
-        .tickFormat('')
-    );
-    gridGroup.selectAll('line').attr('stroke', 'grey').attr('stroke-opacity', 0.2);
-    gridGroup.select('path').remove();
-
-    lineGenerator.y(d => globalYScale(d[config.yKey || 'value']));
-    lineGroup.selectAll('path').attr('d', lineGenerator);
-
-    xAxisGroup.call(d3.axisBottom(currentXScale)
-                  .ticks(width < 400 ? 3 : 6)
-                  .tickFormat(formatX));   // formatX already defined in render()
-
+  function didReceiveNewTrade(snapshot) {
+    const tradeTimestampMs = resolveTradeTimestampMs(snapshot);
+    if (tradeTimestampMs === null) {
+      return false;
+    }
+    if (
+      lastTradeTimestampMs === null ||
+      tradeTimestampMs > lastTradeTimestampMs
+    ) {
+      lastTradeTimestampMs = tradeTimestampMs;
+      return true;
+    }
+    return false;
   }
 
-  // Initial draw
+  function resolveTradeTimestampMs(snapshot) {
+    const rawTradeTimestamp =
+      snapshot?.timestamp ??
+      snapshot?.last_timestamp ??
+      snapshot?.last_trade_timestamp ??
+      null;
+    if (rawTradeTimestamp == null) {
+      return null;
+    }
+    const parsedDate = new Date(rawTradeTimestamp);
+    if (Number.isFinite(parsedDate.getTime())) {
+      return parsedDate.getTime();
+    }
+    const numeric = toFiniteNumber(rawTradeTimestamp);
+    return numeric === null ? null : numeric;
+  }
+
+  function getYAxisFormatter() {
+    if (typeof config.yTickFormat === "function") {
+      return config.yTickFormat;
+    }
+    return d3.format(config.yTickFormat || ".2f");
+  }
+
+  function normalizeData(inputData = []) {
+    return [...inputData]
+      .map((point) => {
+        const date = point.date instanceof Date ? point.date : new Date(point.date);
+        const price = firstFinite(
+          point?.price,
+          point?.[valueKey],
+          point?.last_trade_price,
+          point?.last_price
+        );
+        return { date, price };
+      })
+      .filter(
+        (point) =>
+          Number.isFinite(point.date.getTime()) && Number.isFinite(point.price)
+      )
+      .sort((a, b) => a.date - b.date);
+  }
+
+  function firstFinite(...values) {
+    for (const value of values) {
+      const numeric = toFiniteNumber(value);
+      if (numeric !== null) {
+        return numeric;
+      }
+    }
+    return null;
+  }
+
+  function toFiniteNumber(value) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return null;
+  }
+
+  function resolveSampleTime(rawServerTime) {
+    if (rawServerTime == null) {
+      return new Date();
+    }
+    const parsed = new Date(rawServerTime);
+    if (Number.isFinite(parsed.getTime())) {
+      return parsed;
+    }
+    return new Date();
+  }
+
+  function calculateYPadding(minValue, maxValue) {
+    const span = maxValue - minValue;
+    if (span === 0) {
+      return Math.max(Math.abs(maxValue) * 0.02, 1);
+    }
+    return span * 0.02;
+  }
+
   render();
 
   return {
-    /**
-     * Push fresh data into the graph **without touching the x-domain**,
-     * so any pan / zoom the user has made stays exactly as-is.
-     */
-    update(newData) {
-      // 1️⃣  mutate the *same* array reference so the existing <path> keeps its binding
-      sortedData.splice(0, sortedData.length,
-                        ...newData.sort((a, b) => a.date - b.date));
-
-      // 2️⃣  y-axis + line need a refresh because values may be higher/lower now
-      updateYAxisAndLine();
-
-      // (no call to render(), so the x-scale & buttons stay untouched)
+    update(snapshot = {}) {
+      const now = appendSample(snapshot);
+      refreshLiveChart(now);
     }
   };
 }
