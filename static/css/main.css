@@ -119,6 +119,155 @@ body {
   gap: 25px;
 }
 
+.portfolio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.portfolio-section-header {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--graph-text-color);
+}
+
+.portfolio-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.portfolio-row--clickable {
+  cursor: pointer;
+}
+
+.portfolio-row-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.portfolio-row-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-color);
+  word-break: break-word;
+}
+
+.portfolio-row-value {
+  font-size: 0.9rem;
+  color: var(--graph-text-color);
+  margin-top: 2px;
+}
+
+.portfolio-row--muted .portfolio-row-label {
+  font-weight: 500;
+  color: var(--graph-text-color);
+}
+
+.portfolio-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.portfolio-row-btn {
+  padding: 6px 10px;
+  background-color: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 0.9rem;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.portfolio-row-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.portfolio-orders-anchor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.portfolio-edit-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.portfolio-edit-dialog {
+  width: min(360px, 100%);
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.portfolio-edit-dialog h3 {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.portfolio-edit-summary {
+  color: var(--graph-text-color);
+  font-size: 0.95rem;
+}
+
+.portfolio-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-color);
+}
+
+.portfolio-edit-field input {
+  padding: 10px;
+  border: 1px solid var(--graph-tick-color);
+  border-radius: var(--border-radius);
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.portfolio-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.portfolio-edit-btn {
+  padding: 8px 12px;
+  background-color: var(--primary-color);
+  border: none;
+  color: #fff;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.portfolio-edit-btn--secondary {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+}
+
 /* Card Styling for Holdings & Stocks */
 .holding-card,
 .stock-card {
@@ -305,6 +454,29 @@ body {
   font-size: 0.9em;
 }
 
+.order-book-level {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.order-book-cancel-btn {
+  padding: 4px 10px;
+  background-color: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 0.85em;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+}
+
+.order-book-cancel-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 /* Responsive Adjustments */
 @media (min-width: 768px) {
   #portfolio-summary,
@@ -428,6 +600,11 @@ body {
   stroke-opacity: 0.9;
 }
 
+.portfolio-graph .graph-empty-text {
+  fill: var(--graph-text-color);
+  font-size: 0.9rem;
+}
+
 
 
 /* tick lines */
@@ -484,6 +661,73 @@ body {
 #search-view .search-input::placeholder {
   color: var(--graph-text-color);
   opacity: 1; /* Firefox default is 0.5 */
+}
+
+.manage-orders-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.manage-order-block {
+  background-color: var(--secondary-color);
+  padding: 12px 16px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.manage-orders-panel h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-color);
+}
+
+.manage-order-block label {
+  display: block;
+  font-size: 1em;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.manage-order-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.manage-order-action-row {
+  margin-top: 10px;
+}
+
+.manage-order-input {
+  flex: 1 1 140px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--graph-tick-color);
+  border-radius: var(--border-radius);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  box-shadow: var(--card-shadow);
+}
+
+.manage-order-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(30,144,255,0.2);
+}
+
+.manage-order-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: var(--primary-color);
+  border: none;
+  color: #fff;
+  font-size: 1em;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
 }
 
 /* Icon‑only Bottom Nav, using only pre‑defined colors */

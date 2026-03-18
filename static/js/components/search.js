@@ -6,6 +6,9 @@ import { openStockDetail } from './stockDetails.js';
 export function initSearchView() {
   const stocksGrid = document.querySelector('.stocks-grid');
   const searchInput = document.getElementById('stock-search-input');
+  if (!stocksGrid || !searchInput) {
+    return;
+  }
 
   // Render initial full list
   renderStocks('');

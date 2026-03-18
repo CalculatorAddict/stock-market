@@ -1,114 +1,416 @@
 import { userData } from '../data/userData.js';
-import { openStockDetail } from './stockDetails.js';
-import { stockDataPrices } from '../data/stockData.js';
-import { drawMiniChart } from './miniChart.js';
 import { portfolioPerformanceData } from '../data/portfolioPerformance.js';
 import { drawDetailedGraph } from './graph.js';
 import { loggedIn } from '../main.js';
+import { getIdentityHeaderNames } from '../config/sharedConstants.js';
+import { getOwnedOrdersFromSnapshots } from './orderBook.js';
+import { getLiveOrderbookSnapshots, openStockDetail } from './stockDetails.js';
 
-// ────────────────────────────────────────────────────────────
-// Keep a handle to the live header graph so we can update it
-// ────────────────────────────────────────────────────────────
-let headerGraph; // will be set once in initPortfolioView()
+let headerGraph;
+let portfolioRenderVersion = 0;
+let orderbookRefreshBound = false;
+const hiddenOrderIds = new Set();
 
-/**
- * Clears out and re-renders the .holdings-grid
- * @param {HTMLElement} container  the <div class="holdings-grid">
- * @param {Array} holdings         userData.holdings
- */
-function populatePositions(container, holdings) {
-  // Clear existing cards
-  container.innerHTML = '';
+function updateHeader() {
+  const img = document.getElementById('header-pic');
+  img.src = userData.profilePicUrl || 'assets/logo.jpg';
+  img.onerror = () => {
+    img.src = 'assets/logo.jpg';
+  };
 
-  // ── CASH CARD ─────────────────────────────────────────────
-  const cashCard = document.createElement('div');
-  cashCard.classList.add('holding-card');
-  cashCard.innerHTML = `
-    <h3 class="holding-stock">Cash</h3>
-    <div class="holding-amount">Amount: $${userData.balance.toFixed(2)}</div>
-  `;
-  cashCard.addEventListener('click', () => {
-    /* could open a cash‑detail modal */
+  const titleEl = document.getElementById('portfolio-title');
+  titleEl.textContent = loggedIn
+    ? `${userData.name}'s portfolio value:`
+    : 'Your portfolio value:';
+
+  const pnlValue = userData.pnl;
+  const isPositive = pnlValue.startsWith('+');
+  document.getElementById('balance-header').textContent = `$${userData.portfolioValue.toFixed(2)}`;
+
+  const pnlEl = document.getElementById('pnl-header');
+  pnlEl.textContent = pnlValue;
+  pnlEl.classList.remove('positive', 'negative');
+  pnlEl.classList.add(isPositive ? 'positive' : 'negative');
+}
+
+function createSectionHeader(title) {
+  const header = document.createElement('div');
+  header.classList.add('portfolio-section-header');
+  header.textContent = title;
+  return header;
+}
+
+function createValueRow(label, value, onClick = null) {
+  const row = document.createElement('div');
+  row.classList.add('portfolio-row');
+
+  if (onClick) {
+    row.classList.add('portfolio-row--clickable');
+    row.addEventListener('click', onClick);
+  }
+
+  const main = document.createElement('div');
+  main.classList.add('portfolio-row-main');
+
+  const labelEl = document.createElement('div');
+  labelEl.classList.add('portfolio-row-label');
+  labelEl.textContent = label;
+
+  const valueEl = document.createElement('div');
+  valueEl.classList.add('portfolio-row-value');
+  valueEl.textContent = value;
+
+  main.appendChild(labelEl);
+  main.appendChild(valueEl);
+  row.appendChild(main);
+
+  return row;
+}
+
+function createInfoRow(text) {
+  const row = document.createElement('div');
+  row.classList.add('portfolio-row', 'portfolio-row--muted');
+
+  const info = document.createElement('div');
+  info.classList.add('portfolio-row-label');
+  info.textContent = text;
+
+  row.appendChild(info);
+  return row;
+}
+
+function formatHoldingAmount(amount) {
+  return `Amount: ${amount}`;
+}
+
+function formatOrderLabel(order) {
+  return `${order.side} ${order.ticker} ${order.volume}@${Number(order.price).toFixed(2)}`;
+}
+
+function removeOrderFromSnapshots(orderId) {
+  const snapshots = getLiveOrderbookSnapshots();
+  Object.values(snapshots).forEach((snapshot) => {
+    if (!snapshot) {
+      return;
+    }
+
+    if (Array.isArray(snapshot.all_bids)) {
+      snapshot.all_bids = snapshot.all_bids.filter((order) => order.order_id !== orderId);
+    }
+    if (Array.isArray(snapshot.all_asks)) {
+      snapshot.all_asks = snapshot.all_asks.filter((order) => order.order_id !== orderId);
+    }
   });
-  container.appendChild(cashCard);
-  // ───────────────────────────────────────────────────────────
+}
 
-  // One card per equity/crypto holding
-  holdings.forEach(holding => {
-    const card = document.createElement('div');
-    card.classList.add('holding-card');
-    card.innerHTML = `
-      <h3 class="holding-stock">${holding.stock}</h3>
-      <div class="mini-chart-container"></div>
-      <div class="holding-amount">Amount: ${holding.amount}</div>
-      <div class="holding-pnl">24h PnL: ${holding.pnl}</div>
-    `;
-    card.addEventListener('click', () => openStockDetail(holding.stock));
-    container.appendChild(card);
+function updateOrderInSnapshots(orderId, nextPrice, nextVolume) {
+  const snapshots = getLiveOrderbookSnapshots();
+  Object.values(snapshots).forEach((snapshot) => {
+    if (!snapshot) {
+      return;
+    }
 
-    // draw the sparkline
-    const miniChartContainer = card.querySelector('.mini-chart-container');
-    drawMiniChart(miniChartContainer, stockDataPrices[holding.stock], {
-      width: 100,
-      height: 40,
-      yKey: 'price'
+    const matchingBid = Array.isArray(snapshot.all_bids)
+      ? snapshot.all_bids.find((order) => order.order_id === orderId)
+      : null;
+    if (matchingBid) {
+      matchingBid.price = nextPrice;
+      matchingBid.volume = nextVolume;
+    }
+
+    const matchingAsk = Array.isArray(snapshot.all_asks)
+      ? snapshot.all_asks.find((order) => order.order_id === orderId)
+      : null;
+    if (matchingAsk) {
+      matchingAsk.price = nextPrice;
+      matchingAsk.volume = nextVolume;
+    }
+  });
+}
+
+async function cancelPortfolioOrder(orderId, button) {
+  const identityHeaderNames = await getIdentityHeaderNames();
+
+  button.disabled = true;
+  button.textContent = 'Cancelling...';
+
+  try {
+    const response = await fetch('/api/cancel_order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email,
+      },
+      body: JSON.stringify({ order_id: orderId }),
     });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    hiddenOrderIds.add(orderId);
+    removeOrderFromSnapshots(orderId);
+    refreshPortfolioList();
+  } catch (error) {
+    console.error('Failed to cancel portfolio order:', error);
+
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = 'Cancel';
+    }
+
+    alert('Failed to cancel order.');
+  }
+}
+
+async function submitPortfolioOrderEdit(order, nextPrice, nextQuantity, button) {
+  const identityHeaderNames = await getIdentityHeaderNames();
+
+  button.disabled = true;
+  button.textContent = 'Saving...';
+
+  try {
+    const response = await fetch('/api/edit_order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email,
+      },
+      body: JSON.stringify({
+        order_id: order.order_id,
+        price: nextPrice,
+        volume: nextQuantity,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    updateOrderInSnapshots(order.order_id, nextPrice, nextQuantity);
+    refreshPortfolioList();
+  } catch (error) {
+    console.error('Failed to edit portfolio order:', error);
+
+    if (button.isConnected) {
+      button.disabled = false;
+      button.textContent = 'Edit';
+    }
+
+    alert('Failed to edit order.');
+  }
+}
+
+function openEditOrderModal(order, button) {
+  const overlay = document.createElement('div');
+  overlay.classList.add('portfolio-edit-modal');
+  overlay.innerHTML = `
+    <div class="portfolio-edit-dialog">
+      <h3>Edit Order</h3>
+      <div class="portfolio-edit-summary">${formatOrderLabel(order)}</div>
+      <label class="portfolio-edit-field">
+        <span>Price</span>
+        <input type="number" step="0.01" value="${Number(order.price)}" />
+      </label>
+      <label class="portfolio-edit-field">
+        <span>Quantity</span>
+        <input type="number" step="1" value="${Number(order.volume)}" />
+      </label>
+      <div class="portfolio-edit-actions">
+        <button type="button" class="portfolio-edit-btn portfolio-edit-btn--secondary">Close</button>
+        <button type="button" class="portfolio-edit-btn">Save</button>
+      </div>
+    </div>
+  `;
+
+  const [priceInput, quantityInput] = overlay.querySelectorAll('input');
+  const [closeButton, saveButton] = overlay.querySelectorAll('button');
+
+  const closeModal = () => {
+    if (overlay.isConnected) {
+      document.body.removeChild(overlay);
+    }
+  };
+
+  closeButton.addEventListener('click', closeModal);
+  overlay.addEventListener('click', (event) => {
+    if (event.target === overlay) {
+      closeModal();
+    }
+  });
+
+  saveButton.addEventListener('click', async () => {
+    const nextPrice = Number(priceInput.value);
+    const nextQuantity = Number(quantityInput.value);
+    if (
+      !Number.isFinite(nextPrice) ||
+      !Number.isFinite(nextQuantity) ||
+      nextPrice <= 0 ||
+      nextQuantity <= 0
+    ) {
+      alert('Enter a valid price and quantity.');
+      return;
+    }
+
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
+    await submitPortfolioOrderEdit(order, nextPrice, nextQuantity, button);
+    closeModal();
+  });
+
+  document.body.appendChild(overlay);
+  priceInput.focus();
+  priceInput.select();
+}
+
+function createOrderRow(order) {
+  const row = document.createElement('div');
+  row.classList.add('portfolio-row');
+
+  const main = document.createElement('div');
+  main.classList.add('portfolio-row-main');
+
+  const labelEl = document.createElement('div');
+  labelEl.classList.add('portfolio-row-label');
+  labelEl.textContent = formatOrderLabel(order);
+
+  const actions = document.createElement('div');
+  actions.classList.add('portfolio-row-actions');
+
+  const editButton = document.createElement('button');
+  editButton.type = 'button';
+  editButton.classList.add('portfolio-row-btn');
+  editButton.textContent = 'Edit';
+  editButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openEditOrderModal(order, editButton);
+  });
+
+  const cancelButton = document.createElement('button');
+  cancelButton.type = 'button';
+  cancelButton.classList.add('portfolio-row-btn');
+  cancelButton.textContent = 'Cancel';
+  cancelButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    void cancelPortfolioOrder(order.order_id, cancelButton);
+  });
+
+  actions.appendChild(editButton);
+  actions.appendChild(cancelButton);
+  main.appendChild(labelEl);
+  row.appendChild(main);
+  row.appendChild(actions);
+
+  return row;
+}
+
+function renderStaticPortfolioRows(container, holdings) {
+  container.innerHTML = '';
+  container.appendChild(createSectionHeader('Cash'));
+  container.appendChild(createValueRow('Cash', `$${userData.balance.toFixed(2)}`));
+
+  container.appendChild(createSectionHeader('Stocks'));
+  const nonZeroHoldings = holdings.filter((holding) => Number(holding.amount) !== 0);
+  if (!nonZeroHoldings.length) {
+    container.appendChild(createInfoRow('No stock holdings.'));
+  } else {
+    nonZeroHoldings.forEach((holding) => {
+      container.appendChild(
+        createValueRow(
+          holding.stock,
+          formatHoldingAmount(holding.amount),
+          () => openStockDetail(holding.stock),
+        ),
+      );
+    });
+  }
+
+  container.appendChild(createSectionHeader('Open Limit Orders'));
+}
+
+async function renderPortfolioList(container, holdings) {
+  const renderVersion = ++portfolioRenderVersion;
+  renderStaticPortfolioRows(container, holdings);
+
+  const openOrdersAnchor = document.createElement('div');
+  openOrdersAnchor.classList.add('portfolio-orders-anchor');
+  container.appendChild(openOrdersAnchor);
+  openOrdersAnchor.appendChild(createInfoRow('Loading open orders...'));
+
+  const openOrders = await getOwnedOrdersFromSnapshots(getLiveOrderbookSnapshots());
+  if (renderVersion !== portfolioRenderVersion || !openOrdersAnchor.isConnected) {
+    return;
+  }
+
+  openOrdersAnchor.innerHTML = '';
+  const visibleOrders = openOrders.filter((order) => !hiddenOrderIds.has(order.order_id));
+  if (!visibleOrders.length) {
+    openOrdersAnchor.appendChild(createInfoRow('No open limit orders.'));
+    return;
+  }
+
+  visibleOrders.forEach((order) => {
+    openOrdersAnchor.appendChild(createOrderRow(order));
+  });
+}
+
+function refreshPortfolioList() {
+  const portfolioList = document.getElementById('portfolio-list');
+  if (!portfolioList) {
+    return;
+  }
+
+  void renderPortfolioList(portfolioList, userData.holdings);
+}
+
+function bindOrderbookRefresh() {
+  if (orderbookRefreshBound) {
+    return;
+  }
+
+  orderbookRefreshBound = true;
+  window.addEventListener('orderbook-updated', () => {
+    refreshPortfolioList();
   });
 }
 
 export function initPortfolioView() {
-  // ── HEADER (profile, name, balance, PnL) ──────────────────
-  const img = document.getElementById('header-pic');
-  img.src = userData.profilePicUrl || 'assets/logo.jpg';
-  img.onerror = () => { img.src = 'assets/logo.jpg'; };
+  updateHeader();
+  bindOrderbookRefresh();
 
-  const titleEl = document.getElementById('portfolio-title');
-  titleEl.textContent = loggedIn ? `${userData.name}'s portfolio value:` : 'Your portfolio value:';
-
-  const pnlValue = userData.pnl;
-  const isPositive = pnlValue.startsWith('+');
-  document.getElementById('balance-header').textContent = `$${userData.portfolioValue.toFixed(2)}`;
-  const pnlEl = document.getElementById('pnl-header');
-  pnlEl.textContent = pnlValue;
-  pnlEl.classList.remove('positive', 'negative');
-  pnlEl.classList.add(isPositive ? 'positive' : 'negative');
-
-  // ── MAIN HEADER GRAPH (built once) ────────────────────────
   const graphDiv = document.getElementById('header-graph');
   headerGraph = drawDetailedGraph(graphDiv, portfolioPerformanceData, {
     height: 200,
     yKey: 'value',
-    resizeOnWindow: true
+    resizeOnWindow: true,
   });
 
-  // ── Insert “Your Positions” heading ──────────────────────
-  const holdingsGrid = document.querySelector('.holdings-grid');
-  const positionsTitle = document.createElement('h2');
-  positionsTitle.textContent = 'Your Positions';
-  positionsTitle.classList.add('positions-title');
-  holdingsGrid.parentNode.insertBefore(positionsTitle, holdingsGrid);
+  const portfolioList = document.getElementById('portfolio-list');
+  const existingTitle = document.querySelector('.positions-title');
+  if (!existingTitle && portfolioList?.parentNode) {
+    const positionsTitle = document.createElement('h2');
+    positionsTitle.textContent = 'Your Positions';
+    positionsTitle.classList.add('positions-title');
+    portfolioList.parentNode.insertBefore(positionsTitle, portfolioList);
+  }
 
-  // ── Initial cards render ─────────────────────────────────
-  populatePositions(holdingsGrid, userData.holdings);
+  refreshPortfolioList();
 }
 
-// Called every time fresh data arrives over the socket
 export function populatePortfolio() {
-  // Update header numbers
-  const pnlValue = userData.pnl;
-  const isPositive = pnlValue.startsWith('+');
-  document.getElementById('balance-header').textContent = `$${userData.portfolioValue.toFixed(2)}`;
-  const pnlEl = document.getElementById('pnl-header');
-  pnlEl.textContent = pnlValue;
-  pnlEl.classList.remove('positive', 'negative');
-  pnlEl.classList.add(isPositive ? 'positive' : 'negative');
+  updateHeader();
 
-  // Push new points into the existing graph (no DOM rebuild)
-  if (headerGraph) headerGraph.update(portfolioPerformanceData);
+  if (headerGraph) {
+    headerGraph.update({ price: userData.portfolioValue, force_price: true });
+  }
 
-  // Re-render positions grid
-  const holdingsGrid = document.querySelector('.holdings-grid');
+  const portfolioList = document.getElementById('portfolio-list');
   const positionsTitle = document.querySelector('.positions-title');
-  holdingsGrid.parentNode.insertBefore(positionsTitle, holdingsGrid);
-  populatePositions(holdingsGrid, userData.holdings);
+  if (portfolioList?.parentNode && positionsTitle) {
+    portfolioList.parentNode.insertBefore(positionsTitle, portfolioList);
+  }
+
+  refreshPortfolioList();
 }
