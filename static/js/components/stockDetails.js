@@ -125,7 +125,8 @@ export function openStockDetail(stockName) {
         height: 200,
         yKey: 'price',
         resizeOnWindow: false,
-        margin: { left: 68 }
+        margin: { left: 68 },
+        initialTradeTimestamp: stockDataDynamic[stockName]?.last_timestamp ?? null,
       }
     );
     activeStockGraphs[stockName] = graph;
