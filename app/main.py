@@ -24,6 +24,8 @@ order_books = [OrderBook(ticker) for ticker in TICKERS]
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_database_exists(seed_clients=SEEDED_CLIENTS)
+    # One-time recovery command if persisted orderbook rows ever block startup:
+    # uv run python scripts/persistence_override.py
     restore_orderbook_state()
     sample_prices()
     sample_portfolio_values()
