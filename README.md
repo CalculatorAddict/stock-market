@@ -175,3 +175,67 @@ To run multiple seeded bot profiles:
 ```bash
 uv run python TradingBot/run_demo_bots.py --bot-count 2
 ```
+
+```mermaid
+flowchart LR
+
+%% ---- Layers (horizontal) ----
+subgraph Clients
+  direction TB
+  GUI[GUI]
+  CLI[CLI]
+  BOT[Bot]
+end
+
+subgraph API
+  direction TB
+  REST[REST API]
+  WS[WebSockets]
+  AUTH[Google OAuth]
+end
+
+subgraph Core
+  direction TB
+  ME[Matching Engine]
+  OB[Order Book]
+  PV[Portfolio Value]
+end
+
+subgraph Models
+  direction TB
+  ORD[Order]
+  TX[Transaction]
+  CL[Client]
+end
+
+subgraph Persistence
+  direction TB
+  DB[(SQL Database)]
+end
+
+%% ---- Clients ↔ API ----
+GUI <--> WS
+BOT <--> WS
+GUI <--> REST
+CLI <--> REST
+GUI --> AUTH
+CLI --> AUTH
+
+%% ---- API → Core ----
+REST --> ME
+WS --> PV
+WS --> OB
+
+%% ---- Core ----
+ME --> OB
+
+%% ---- Core → Models ----
+ME --> CL
+ME --> TX
+OB --> TX
+OB --> ORD
+
+%% ---- Persistence ----
+REST --> DB
+ME --> DB
+```
