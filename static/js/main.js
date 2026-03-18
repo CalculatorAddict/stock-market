@@ -9,17 +9,15 @@ import {
   getClientInfoSocketAddresses,
   getIdentityHeaderNames,
   getOrderbookSocketAddresses,
+  getSharedConstants,
 } from './config/sharedConstants.js';
 
 export var loggedIn = false;
 let client_socket = null;
 let landingMarketSocket = null;
-const LANDING_TICKERS = ['AAPL', 'GOOG', 'TSLA'];
-const landingMarketState = {
-  AAPL: { ticker: 'AAPL', price: 32.0, bid: 240, ask: 260 },
-  GOOG: { ticker: 'GOOG', price: 18.0, bid: 180, ask: 210 },
-  TSLA: { ticker: 'TSLA', price: 24.0, bid: 205, ask: 225 },
-};
+let landingTickers = [];
+const landingMarketState = {};
+let landingPreviewInitPromise = null;
 
 function toFiniteNumber(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -39,28 +37,121 @@ function formatPrice(value) {
   return numericValue === null ? value : numericValue.toFixed(2);
 }
 
+function ensureLandingTickerState(ticker, fallbackPrice = null) {
+  if (!landingMarketState[ticker]) {
+    landingMarketState[ticker] = {
+      ticker,
+      price: fallbackPrice,
+      bid: '--',
+      ask: '--',
+    };
+  }
+
+  return landingMarketState[ticker];
+}
+
+function applyLandingSnapshot(ticker, snapshot = {}, fallbackPrice = null) {
+  const state = ensureLandingTickerState(ticker, fallbackPrice);
+  const bestBid = toFiniteNumber(snapshot.best_bid);
+  const bestAsk = toFiniteNumber(snapshot.best_ask);
+  const lastPrice = toFiniteNumber(snapshot.last_price);
+  const resolvedFallbackPrice = toFiniteNumber(fallbackPrice);
+  const displayPrice =
+    bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0
+      ? (bestBid + bestAsk) / 2
+      : lastPrice ?? resolvedFallbackPrice ?? state.price;
+
+  landingMarketState[ticker] = {
+    ticker,
+    price: displayPrice,
+    bid: bestBid ?? state.bid,
+    ask: bestAsk ?? state.ask,
+  };
+}
+
 function renderLandingPreview() {
   const rowsContainer = document.getElementById('landing-orderbook-rows');
   if (!rowsContainer) {
     return;
   }
 
-  rowsContainer.innerHTML = LANDING_TICKERS
+  if (!landingTickers.length) {
+    rowsContainer.innerHTML = `
+      <div class="landing-orderbook-row">
+        <span class="landing-orderbook-ticker">Local</span>
+        <span class="landing-orderbook-price">Loading</span>
+        <span class="landing-orderbook-bid">--</span>
+        <span class="landing-orderbook-ask">--</span>
+      </div>
+    `;
+    return;
+  }
+
+  rowsContainer.innerHTML = landingTickers
     .map((ticker) => landingMarketState[ticker])
-    .map(
-      (row) => `
+    .map((row) => {
+      const displayPrice = toFiniteNumber(row.price);
+      return `
         <div class="landing-orderbook-row">
           <span class="landing-orderbook-ticker">${row.ticker}</span>
-          <span class="landing-orderbook-price">$${row.price.toFixed(2)}</span>
+          <span class="landing-orderbook-price">${
+            displayPrice === null ? '--' : displayPrice.toFixed(2)
+          }</span>
           <span class="landing-orderbook-bid">${formatPrice(row.bid)}</span>
           <span class="landing-orderbook-ask">${formatPrice(row.ask)}</span>
         </div>
-      `,
-    )
+      `;
+    })
     .join('');
 }
 
-function startLandingPreview() {
+async function initializeLandingPreviewState() {
+  if (landingPreviewInitPromise) {
+    await landingPreviewInitPromise;
+    return;
+  }
+
+  landingPreviewInitPromise = (async () => {
+    const sharedConstants = await getSharedConstants();
+    const configuredTickers = Array.isArray(sharedConstants.backend?.tickers)
+      ? sharedConstants.backend.tickers.map((ticker) => String(ticker))
+      : [];
+    const openingPrices = sharedConstants.backend?.opening_prices ?? {};
+
+    landingTickers = configuredTickers;
+    landingTickers.forEach((ticker) => {
+      applyLandingSnapshot(ticker, {}, openingPrices[ticker] ?? null);
+    });
+    renderLandingPreview();
+
+    await Promise.all(
+      landingTickers.map(async (ticker) => {
+        try {
+          const response = await fetch(
+            `/api/get_best?ticker=${encodeURIComponent(ticker)}`,
+          );
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const snapshot = await response.json();
+          applyLandingSnapshot(ticker, snapshot, openingPrices[ticker] ?? null);
+        } catch (error) {
+          console.error(`Failed to hydrate landing market preview for ${ticker}:`, error);
+        }
+      }),
+    );
+  })();
+
+  try {
+    await landingPreviewInitPromise;
+  } finally {
+    renderLandingPreview();
+  }
+}
+
+async function startLandingPreview() {
+  await initializeLandingPreviewState();
   renderLandingPreview();
   if (landingMarketSocket !== null) {
     return;
@@ -89,26 +180,13 @@ async function connectLandingMarketFeed() {
   const bindSocketEvents = (activeSocket) => {
     activeSocket.addEventListener('message', (event) => {
       const payload = JSON.parse(event.data);
-      LANDING_TICKERS.forEach((ticker) => {
+      landingTickers.forEach((ticker) => {
         const snapshot = payload?.[ticker];
         if (!snapshot) {
           return;
         }
 
-        const bestBid = toFiniteNumber(snapshot.best_bid);
-        const bestAsk = toFiniteNumber(snapshot.best_ask);
-        const lastPrice = toFiniteNumber(snapshot.last_price);
-        const displayPrice =
-          bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0
-            ? (bestBid + bestAsk) / 2
-            : lastPrice ?? landingMarketState[ticker].price;
-
-        landingMarketState[ticker] = {
-          ticker,
-          price: displayPrice,
-          bid: bestBid ?? landingMarketState[ticker].bid,
-          ask: bestAsk ?? landingMarketState[ticker].ask,
-        };
+        applyLandingSnapshot(ticker, snapshot);
       });
       renderLandingPreview();
     });
@@ -160,7 +238,7 @@ function syncAuthShell() {
   if (loggedIn) {
     stopLandingPreview();
   } else {
-    startLandingPreview();
+    void startLandingPreview();
   }
 }
 
