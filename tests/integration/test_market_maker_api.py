@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from TradingBot.TradingBot import TradingBot
+from trading_bot.market_maker import MarketMaker
 
 
 def _build_bot(
@@ -11,21 +11,20 @@ def _build_bot(
     client_email: str | None = None,
     api_url: str = "http://localhost:8000/api/place_order",
     include_email_header: bool = False,
-) -> TradingBot:
-    with patch("TradingBot.TradingBot.TradingBot.listen_orderbook") as mock_listen:
-        mock_listen.return_value = None
-        return TradingBot(
-            client_user=client_user,
-            client_email=client_email,
-            api_url=api_url,
-            include_email_header=include_email_header,
-        )
+) -> MarketMaker:
+    return MarketMaker(
+        client_user=client_user,
+        client_email=client_email,
+        api_url=api_url,
+        include_email_header=include_email_header,
+        auto_start=False,
+    )
 
 
 def test_place_order_posts_to_configured_endpoint_with_expected_payload():
     bot = _build_bot()
 
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_post.return_value = mock_response
@@ -54,7 +53,7 @@ def test_place_order_includes_email_header_when_configured():
         include_email_header=True,
     )
 
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_post.return_value = mock_response
@@ -80,7 +79,7 @@ def test_place_order_includes_email_header_when_configured():
 def test_place_order_buy_tracks_open_order_without_mutating_inventory():
     bot = _build_bot()
 
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = "buy-order-id"
@@ -100,7 +99,7 @@ def test_place_order_buy_tracks_open_order_without_mutating_inventory():
 def test_place_order_sell_tracks_open_order_without_going_negative():
     bot = _build_bot()
 
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = "sell-order-id"
@@ -120,7 +119,7 @@ def test_place_order_sell_tracks_open_order_without_going_negative():
 def test_place_order_does_not_update_state_on_http_failure():
     bot = _build_bot()
 
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+    with patch("trading_bot.market_maker.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 400
         mock_response.text = "bad request"
@@ -146,7 +145,7 @@ def test_place_order_can_execute_against_api_endpoint(api_client, monkeypatch):
         assert url == bot.api_url
         return api_client.post("/api/place_order", json=json, headers=headers)
 
-    monkeypatch.setattr("TradingBot.TradingBot.requests.post", _post_to_test_client)
+    monkeypatch.setattr("trading_bot.market_maker.requests.post", _post_to_test_client)
 
     asyncio.run(bot.place_order("OGC", "buy", 110.0, 2))
 

@@ -142,7 +142,7 @@ Those constants are loaded in backend code through [market_constants.py](/Users/
 - [engine/](/Users/arav/git/stock-market/engine): matching engine and order book logic
 - [models/](/Users/arav/git/stock-market/models): domain models
 - [static/](/Users/arav/git/stock-market/static): frontend app and shared config
-- [TradingBot/](/Users/arav/git/stock-market/TradingBot): demo bot clients
+- [trading_bot/](/Users/arav/git/stock-market/trading_bot): trading bot interface and demo implementations
 - [tests/](/Users/arav/git/stock-market/tests): unit, API, and integration tests
 - [scripts/smoke_demo.sh](/Users/arav/git/stock-market/scripts/smoke_demo.sh): end-to-end local smoke script
 
@@ -167,13 +167,13 @@ uv run pytest -m integration -q
 With the server already running:
 
 ```bash
-uv run python TradingBot/TradingBot.py
+uv run python trading_bot/market_maker.py
 ```
 
 To run multiple seeded bot profiles:
 
 ```bash
-uv run python TradingBot/run_demo_bots.py --bot-count 2
+uv run python trading_bot/run_demo_bots.py --bot-count 2
 ```
 
 ```mermaid

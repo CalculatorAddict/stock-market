@@ -1,7 +1,9 @@
+"""Helpers for launching multiple demo trading bots at once."""
+
 import argparse
 import asyncio
 
-from TradingBot.TradingBot import TradingBot
+from trading_bot.market_maker import MarketMaker
 
 
 BOT_PROFILES = [
@@ -33,12 +35,14 @@ BOT_PROFILES = [
 
 
 async def run_bots(bot_count):
+    """Start the requested number of demo bots and await all websocket loops."""
     selected_profiles = BOT_PROFILES[:bot_count]
-    bots = [TradingBot(auto_start=False, **profile) for profile in selected_profiles]
+    bots = [MarketMaker(auto_start=False, **profile) for profile in selected_profiles]
     await asyncio.gather(*(bot.listen_orderbook() for bot in bots))
 
 
 def main():
+    """Parse CLI flags and launch a bounded number of demo bot profiles."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--bot-count", type=int, default=2)
     args = parser.parse_args()

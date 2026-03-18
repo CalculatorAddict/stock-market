@@ -1,48 +1,21 @@
+"""Concrete market-making bot implementation for the demo exchange."""
+
 import argparse
 import asyncio
-import json
 import random
 import sys
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
 from datetime import timedelta
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-import websockets
+from trading_bot.trading_bot import TradingBot
 
 
-class TradingBot:
-    @staticmethod
-    def log(message):
-        print(message, flush=True)
-
-    @staticmethod
-    def load_bot_accounts():
-        config_path = (
-            Path(__file__).resolve().parent.parent
-            / "static"
-            / "config"
-            / "shared_constants.json"
-        )
-        try:
-            with config_path.open() as config_file:
-                shared_constants = json.load(config_file)
-            accounts = shared_constants.get("backend", {}).get("bot_clients", [])
-            return {
-                account["username"]: account
-                for account in accounts
-                if "username" in account
-            }
-        except Exception:
-            return {}
-
-    @staticmethod
-    def default_bot_username():
-        accounts = TradingBot.load_bot_accounts()
-        return next(iter(accounts), "demo_bot")
+class MarketMaker(TradingBot):
+    """Automated trader that maintains two-sided quotes for each ticker."""
 
     def __init__(
         self,
@@ -64,19 +37,16 @@ class TradingBot:
         include_email_header: bool = False,
         auto_start: bool = True,
     ):
-        self.bot_accounts = self.load_bot_accounts()
-        if client_user is None:
-            client_user = self.default_bot_username()
-        account = self.bot_accounts.get(client_user)
-        self.client_user = client_user
-        resolved_email = account.get("email") if account else None
-        self.client_email = resolved_email or client_email
-        self.api_url = api_url
-        self.websocket_url = websocket_url
-        self.actor_user_header = actor_user_header
-        self.actor_email_header = actor_email_header
-        self.include_email_header = include_email_header
-        self.running = True
+        """Initialise the market-making strategy and its per-ticker state."""
+        super().__init__(
+            client_user=client_user,
+            client_email=client_email,
+            api_url=api_url,
+            websocket_url=websocket_url,
+            actor_user_header=actor_user_header,
+            actor_email_header=actor_email_header,
+            include_email_header=include_email_header,
+        )
         self.ticker_states = defaultdict(
             lambda: {
                 "inventory": 0,
@@ -102,25 +72,11 @@ class TradingBot:
         self.cross_probability = cross_probability
         self.cancel_probability = cancel_probability
         self.quote_noise_range = quote_noise_range
-        self.cancel_url = f"{self.api_url.rsplit('/', 1)[0]}/cancel_order"
         if auto_start:
             self.run()
 
-    def run(self):
-        try:
-            self.log(
-                f"Initialising {self.client_user} "
-                f"(email={self.client_email or 'none'}, "
-                f"include_email_header={self.include_email_header})"
-            )
-            asyncio.run(self.listen_orderbook())
-        except KeyboardInterrupt:
-            self.handle_shutdown()
-        except Exception as e:
-            self.log(f"Error initialising {self.client_user}: {e}")
-            raise
-
     def handle_shutdown(self):
+        """Print a final trading summary and exit the process."""
         if not self.running:
             return
         self.running = False
@@ -167,6 +123,7 @@ class TradingBot:
         sys.exit(0)
 
     def log_status(self, ticker):
+        """Print the current position, mark value, and PnL for one ticker."""
         state = self.ticker_states[ticker]
         print(f"PORTFOLIO FOR {ticker}:")
         print(f"Current Inventory: {state['inventory']} shares")
@@ -176,13 +133,8 @@ class TradingBot:
         )
         print("\n")
 
-    def request_headers(self):
-        headers = {self.actor_user_header: self.client_user}
-        if self.include_email_header and self.client_email:
-            headers[self.actor_email_header] = self.client_email
-        return headers
-
     def load_inventory(self, ticker):
+        """Seed local inventory state for a ticker from the bot account config."""
         state = self.ticker_states[ticker]
         if state["inventory_loaded"]:
             return
@@ -197,15 +149,19 @@ class TradingBot:
         state["inventory_loaded"] = True
 
     def round_price(self, price):
+        """Clamp to a positive market price and round to cents."""
         return round(max(price, 0.01), 2)
 
     def quote_volume(self):
+        """Sample an order size within the configured quoting range."""
         return random.randint(self.min_quote_size, self.max_quote_size)
 
     def next_delay(self):
+        """Sample the delay before the next quote refresh."""
         return random.uniform(self.min_trade_interval, self.max_trade_interval)
 
     def reference_price(self, best_bid, best_ask, last_price):
+        """Choose a quoting anchor from the book, last trade, or a default price."""
         if best_bid not in (None, 0) and best_ask not in (None, 0):
             return (best_bid + best_ask) / 2
         if last_price and last_price > 0:
@@ -217,16 +173,19 @@ class TradingBot:
         return 100.0
 
     def tracked_sell_volume(self, ticker):
+        """Return the sell volume already committed in open orders for a ticker."""
         return sum(
             order["remaining_volume"]
             for order in self.ticker_states[ticker]["open_orders"]["sell"].values()
         )
 
     def available_inventory(self, ticker):
+        """Return inventory that can still be offered for sale."""
         state = self.ticker_states[ticker]
         return max(0, state["inventory"] - self.tracked_sell_volume(ticker))
 
     def record_fill(self, ticker, side, price, volume):
+        """Update inventory, PnL, and fill history after an executed trade."""
         if volume <= 0:
             return
 
@@ -257,6 +216,7 @@ class TradingBot:
         print(f"PnL: {pnl}")
 
     def reconcile_open_orders(self, ticker, data):
+        """Match tracked orders against the latest book snapshot and detect fills."""
         state = self.ticker_states[ticker]
         active_orders = {
             "buy": {order["order_id"]: order for order in data.get("all_bids", [])},
@@ -287,6 +247,7 @@ class TradingBot:
                 tracked_order["remaining_volume"] = current_order["volume"]
 
     def quote_prices(self, best_bid, best_ask, last_price):
+        """Generate buy and sell quotes with spread, bias, and crossing logic."""
         reference = self.reference_price(best_bid, best_ask, last_price)
         spread = random.uniform(*self.spread_range)
         buy_price = reference * (1 - spread / 2)
@@ -334,6 +295,7 @@ class TradingBot:
         return buy_price, sell_price, spread, bias, cross_side
 
     async def cancel_order(self, ticker, side, order_id):
+        """Cancel one outstanding order through the HTTP API."""
         payload = {"order_id": order_id}
         headers = self.request_headers()
 
@@ -361,41 +323,29 @@ class TradingBot:
         return cancelled
 
     async def cancel_orders_for_side(self, ticker, side):
+        """Cancel all tracked open orders for one side of a ticker."""
         open_orders = list(self.ticker_states[ticker]["open_orders"][side])
         for order_id in open_orders:
             await self.cancel_order(ticker, side, order_id)
 
     async def randomly_cancel_orders(self, ticker):
+        """Randomly cancel existing quotes to keep the bot from staying static."""
         state = self.ticker_states[ticker]
         for side in ("buy", "sell"):
             for order_id in list(state["open_orders"][side]):
                 if random.random() < self.cancel_probability:
                     await self.cancel_order(ticker, side, order_id)
 
-    async def listen_orderbook(self):
-        uri = self.websocket_url
-        async with websockets.connect(uri) as websocket:
-            while self.running:
-                try:
-                    msg = await websocket.recv()
-                    data = json.loads(msg)
-                    for ticker, ticker_data in data.items():
-                        await self.market_make(ticker, ticker_data)
-                except websockets.exceptions.ConnectionClosed:
-                    print("WebSocket connection closed")
-                    break
-                except Exception as e:
-                    print(f"Error processing message: {e}")
-                    continue
-
     def volatility(self, ticker):
+        """Estimate annualised volatility from recent reference-price history."""
         price_history = self.ticker_states[ticker]["price_history"]
         if len(price_history) < self.volatility_window:
             return 0.1
         returns = np.diff(np.log(price_history[-self.volatility_window :]))
         return np.std(returns) * np.sqrt(252)
 
-    async def market_make(self, ticker, data):
+    async def process_market_update(self, ticker, data):
+        """Refresh quotes for a ticker based on the latest book snapshot."""
         best_bid = data["best_bid"]
         best_ask = data["best_ask"]
         last_price = data["last_price"]
@@ -460,6 +410,7 @@ class TradingBot:
         self.log_status(ticker)
 
     async def place_order(self, ticker, side, price, volume):
+        """Submit an order through the HTTP API and track it if accepted."""
         payload = {
             "ticker": ticker,
             "side": side,
@@ -517,7 +468,7 @@ if __name__ == "__main__":
     parser.add_argument("--cancel-probability", type=float, default=0.3)
     args = parser.parse_args()
 
-    TradingBot(
+    MarketMaker(
         client_user=args.client_user,
         client_email=args.client_email,
         api_url=args.api_url,
