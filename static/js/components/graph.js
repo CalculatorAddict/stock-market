@@ -99,6 +99,7 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       xAxisGroup.call(
         d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
       );
+      constrainXAxisLabels();
       lineGroup.selectAll("path").remove();
       yAxisGroup.selectAll("*").remove();
       gridGroup.selectAll("*").remove();
@@ -142,6 +143,7 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
     xAxisGroup.call(
       d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
     );
+    constrainXAxisLabels();
 
     const isGain =
       lineData[lineData.length - 1].price >= lineData[0].price;
@@ -191,6 +193,21 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
     while (sortedData.length && sortedData[0].date < cutoff) {
       sortedData.shift();
     }
+  }
+
+  function constrainXAxisLabels() {
+    const xTickLabels = xAxisGroup.selectAll(".tick text");
+    xTickLabels.attr("text-anchor", "middle").attr("dx", null);
+
+    xTickLabels
+      .filter((_datum, index, nodes) => index === 0)
+      .attr("text-anchor", "start")
+      .attr("dx", "0.2em");
+
+    xTickLabels
+      .filter((_datum, index, nodes) => index === nodes.length - 1)
+      .attr("text-anchor", "end")
+      .attr("dx", "-0.2em");
   }
 
   // We sample every tick instead of only trades so time is continuous:
