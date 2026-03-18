@@ -4,7 +4,7 @@ import { stockDataPrices } from '../data/stockData.js';
 import { drawDetailedGraph } from './graph.js';
 import { loggedIn } from '../main.js';
 import { getIdentityHeaderNames } from '../config/sharedConstants.js';
-import { getOwnedOrdersFromSnapshots } from './orderBook.js';
+import { getOwnedOrdersFromSnapshots, removeOwnedOrder } from './orderBook.js';
 import { getLiveOrderbookSnapshots, openStockDetail } from './stockDetails.js';
 
 let headerGraph;
@@ -340,6 +340,7 @@ async function cancelPortfolioOrder(orderId, button) {
     }
 
     hiddenOrderIds.add(orderId);
+    removeOwnedOrder(orderId);
     removeOrderFromSnapshots(orderId);
     refreshPortfolioList();
   } catch (error) {

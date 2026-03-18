@@ -22,6 +22,10 @@ class OrderIdResponse(RootModel[str]):
     pass
 
 
+class OpenOrderIdsResponse(RootModel[list[str]]):
+    pass
+
+
 class CancelOrderRequest(BaseModel):
     order_id: str | int
 

@@ -155,3 +155,77 @@ def test_order_status_rejects_mismatched_actor(api_client):
     response = api_client.get("/api/order_status", params={"order_id": jlee_order_id})
     assert response.status_code == 403
     assert response.json()["detail"] == "Actor username does not match target user."
+
+
+def test_open_orders_returns_only_authenticated_active_orders(api_client):
+    open_order_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 90.0,
+            "volume": 2,
+            "client_user": "amorgan",
+        },
+    )
+    open_order_id = open_order_response.json()
+
+    canceled_order_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 89.0,
+            "volume": 1,
+            "client_user": "amorgan",
+        },
+    )
+    canceled_order_id = canceled_order_response.json()
+    cancel_response = api_client.post(
+        "/api/cancel_order", json={"order_id": canceled_order_id}
+    )
+    assert cancel_response.status_code == 200
+
+    filled_order_response = api_client.post(
+        "/api/place_order",
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 120.0,
+            "volume": 1,
+            "client_user": "amorgan",
+        },
+    )
+    filled_order_id = filled_order_response.json()
+    match_response = api_client.post(
+        "/api/place_order",
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 120.0,
+            "volume": 1,
+            "client_user": "jlee",
+        },
+    )
+    assert match_response.status_code == 200
+
+    foreign_order_response = api_client.post(
+        "/api/place_order",
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
+        json={
+            "ticker": "AAPL",
+            "side": "sell",
+            "price": 200.0,
+            "volume": 1,
+            "client_user": "jlee",
+        },
+    )
+    foreign_order_id = foreign_order_response.json()
+
+    response = api_client.get("/api/open_orders")
+    assert response.status_code == 200
+    assert response.json() == [open_order_id]
+    assert canceled_order_id not in response.json()
+    assert filled_order_id not in response.json()
+    assert foreign_order_id not in response.json()

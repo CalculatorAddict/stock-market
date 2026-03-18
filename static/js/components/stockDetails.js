@@ -2,7 +2,11 @@
 
 import { stockDataPrices } from '../data/stockData.js';       // historic price data
 import { drawDetailedGraph } from './graph.js';              // to draw the stock chart
-import { populateOrderBook } from './orderBook.js';          // to render order book
+import {
+  invalidateOwnedOrderCache,
+  markOwnedOrder,
+  populateOrderBook
+} from './orderBook.js';          // to render order book
 import { loggedIn } from '../main.js';                       // login flag
 import { userData } from '../data/userData.js';              // current user info
 import {
@@ -228,6 +232,7 @@ async function handleOrder(stockName, orderType, modal) {
       })
       .then(data => {
         console.log("Server Response:", data);
+        markOwnedOrder(data);
         alert("Order placed successfully!");
       })
       .catch(err => {
@@ -260,6 +265,7 @@ async function handleOrder(stockName, orderType, modal) {
       })
       .then(data => {
         console.log("Server Response:", data);
+        invalidateOwnedOrderCache();
         alert("Order placed successfully!");
       })
       .catch(err => {

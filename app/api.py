@@ -19,6 +19,7 @@ from app.schemas import (
     EditOrderResponse,
     DemoResponse,
     MarketOrderRequest,
+    OpenOrderIdsResponse,
     OrderBookLevel,
     OrderIdResponse,
     OrderStatusResponse,
@@ -119,6 +120,26 @@ def _assert_actor_matches_email(request_email: str, actor_email: str | None) -> 
             status_code=403,
             detail="Actor email does not match target user.",
         )
+
+
+def _resolve_authenticated_client(
+    actor_user: str | None, actor_email: str | None
+) -> Client:
+    _assert_actor_headers_present(actor_user, actor_email)
+
+    client = None
+    normalized_user = _normalize_identity(actor_user)
+    normalized_email = _normalize_identity(actor_email)
+
+    if normalized_user is not None:
+        client = Client.get_client_by_username(normalized_user)
+    if client is None and normalized_email is not None:
+        client = Client.get_client_by_email(normalized_email)
+    if client is None:
+        raise HTTPException(status_code=404, detail="Authenticated client not found.")
+
+    _assert_actor_matches_client(client, actor_user, actor_email)
+    return client
 
 
 async def place_order(
@@ -536,19 +557,7 @@ async def get_portfolio_values(
             detail="Window must be a positive integer.",
         )
 
-    _assert_actor_headers_present(x_actor_user, x_actor_email)
-    client = None
-    normalized_user = _normalize_identity(x_actor_user)
-    normalized_email = _normalize_identity(x_actor_email)
-
-    if normalized_user is not None:
-        client = Client.get_client_by_username(normalized_user)
-    if client is None and normalized_email is not None:
-        client = Client.get_client_by_email(normalized_email)
-    if client is None:
-        raise HTTPException(status_code=404, detail="Authenticated client not found.")
-
-    _assert_actor_matches_client(client, x_actor_user, x_actor_email)
+    client = _resolve_authenticated_client(x_actor_user, x_actor_email)
     return get_portfolio_value_history(client, window)
 
 
@@ -571,6 +580,25 @@ async def get_demo() -> dict:
         "default_ticker": str(DEMO_API_INFO.get("default_ticker", "AAPL")),
         "accounts": demo_accounts,
     }
+
+
+async def get_open_orders(
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
+    """
+    Fetch public order IDs for the authenticated actor's currently open orders.
+
+    Returns:
+    - List of public UUID order IDs for non-terminated orders owned by the actor.
+    """
+    client = _resolve_authenticated_client(x_actor_user, x_actor_email)
+    open_order_ids = [
+        to_public_order_id(order.order_id)
+        for order in Order._all_orders.values()
+        if order.client == client and not order.terminated and order.get_volume() > 0
+    ]
+    return sorted(open_order_ids)
 
 
 async def get_order_status(
@@ -716,6 +744,7 @@ def register_api_routes(app: FastAPI) -> None:
     )
     app.get("/api/get_all_asks", response_model=list[OrderBookLevel])(get_all_asks)
     app.get("/api/get_all_bids", response_model=list[OrderBookLevel])(get_all_bids)
+    app.get("/api/open_orders", response_model=OpenOrderIdsResponse)(get_open_orders)
     app.get("/api/order_status", response_model=OrderStatusResponse)(get_order_status)
     app.get("/api/transactions", response_model=list[PublicTransaction])(
         get_transactions

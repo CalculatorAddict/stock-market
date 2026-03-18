@@ -3,8 +3,8 @@ import { getIdentityHeaderNames } from '../config/sharedConstants.js';
 
 let ownershipActorKey = '';
 const ownedOrderIds = new Set();
-const rejectedOrderIds = new Set();
-const pendingOwnershipChecks = new Map();
+let ownedOrderIdsLoaded = false;
+let pendingOwnedOrderRefresh = null;
 
 function resetOwnershipCacheIfActorChanged() {
   const nextActorKey = `${userData.username || ''}|${userData.email || ''}`;
@@ -14,60 +14,90 @@ function resetOwnershipCacheIfActorChanged() {
 
   ownershipActorKey = nextActorKey;
   ownedOrderIds.clear();
-  rejectedOrderIds.clear();
-  pendingOwnershipChecks.clear();
+  ownedOrderIdsLoaded = false;
+  pendingOwnedOrderRefresh = null;
 }
 
-async function isOwnOrder(orderId) {
+export function invalidateOwnedOrderCache() {
+  ownedOrderIds.clear();
+  ownedOrderIdsLoaded = false;
+  pendingOwnedOrderRefresh = null;
+}
+
+export function markOwnedOrder(orderId) {
+  if (typeof orderId !== 'string' || !orderId) {
+    return;
+  }
+
+  resetOwnershipCacheIfActorChanged();
+  ownedOrderIds.add(orderId);
+}
+
+export function removeOwnedOrder(orderId) {
+  if (typeof orderId !== 'string' || !orderId) {
+    return;
+  }
+
+  ownedOrderIds.delete(orderId);
+}
+
+async function ensureOwnedOrderIdsLoaded() {
   resetOwnershipCacheIfActorChanged();
 
   if (!userData.username || !userData.email) {
     return false;
   }
 
-  if (ownedOrderIds.has(orderId)) {
+  if (ownedOrderIdsLoaded) {
     return true;
   }
 
-  if (rejectedOrderIds.has(orderId)) {
-    return false;
-  }
-
-  const lookupKey = `${ownershipActorKey}:${orderId}`;
-  if (!pendingOwnershipChecks.has(lookupKey)) {
-    pendingOwnershipChecks.set(
-      lookupKey,
+  if (!pendingOwnedOrderRefresh) {
+    pendingOwnedOrderRefresh =
       (async () => {
         try {
           const identityHeaderNames = await getIdentityHeaderNames();
-          const response = await fetch(
-            `/api/order_status?order_id=${encodeURIComponent(orderId)}`,
-            {
-              headers: {
-                [identityHeaderNames.user]: userData.username,
-                [identityHeaderNames.email]: userData.email,
-              },
+          const response = await fetch('/api/open_orders', {
+            headers: {
+              [identityHeaderNames.user]: userData.username,
+              [identityHeaderNames.email]: userData.email,
             },
-          );
+          });
 
-          if (response.ok) {
-            ownedOrderIds.add(orderId);
-            return true;
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
           }
 
-          rejectedOrderIds.add(orderId);
-          return false;
+          const orderIds = await response.json();
+          ownedOrderIds.clear();
+          if (Array.isArray(orderIds)) {
+            orderIds.forEach((ownedOrderId) => {
+              if (typeof ownedOrderId === 'string' && ownedOrderId) {
+                ownedOrderIds.add(ownedOrderId);
+              }
+            });
+          }
+
+          ownedOrderIdsLoaded = true;
+          return true;
         } catch (error) {
-          console.error('Failed to resolve order ownership:', error);
+          console.error('Failed to load owned orders:', error);
           return false;
         } finally {
-          pendingOwnershipChecks.delete(lookupKey);
+          pendingOwnedOrderRefresh = null;
         }
-      })(),
-    );
+      })();
   }
 
-  return pendingOwnershipChecks.get(lookupKey);
+  return pendingOwnedOrderRefresh;
+}
+
+async function isOwnOrder(orderId) {
+  if (!(await ensureOwnedOrderIdsLoaded())) {
+    return false;
+  }
+
+  return ownedOrderIds.has(orderId);
 }
 
 async function cancelOrderFromBook(orderId, button) {
@@ -91,8 +121,7 @@ async function cancelOrderFromBook(orderId, button) {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    ownedOrderIds.delete(orderId);
-    rejectedOrderIds.add(orderId);
+    removeOwnedOrder(orderId);
 
     if (button.isConnected) {
       button.textContent = 'Canceled';
