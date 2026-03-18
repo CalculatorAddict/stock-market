@@ -117,17 +117,17 @@ async def place_order(
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Place a limit order for a stock.
+    Place a limit order and return its public order ID.
 
     Parameters:
-    - ticker: The ticker of the order book.
-    - side: The side of the order (buy/sell).
-    - price: The price at which to place the order.
-    - volume: The number of shares to order.
-    - client_user: The username of the client placing the order.
+    - order.ticker: Target ticker symbol.
+    - order.side: Order side (`buy` or `sell`).
+    - order.price: Limit price.
+    - order.volume: Requested share quantity.
+    - order.client_user: Username of the submitting client.
 
     Returns:
-    - order_id if successful, or an error message.
+    - Public UUID order ID.
     """
     ticker = order.ticker
     side = order.side
@@ -177,16 +177,16 @@ async def market_order(
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Place a market order for a stock.
+    Place a market order and return its public order ID.
 
     Parameters:
-    - ticker: The ticker of the order book.
-    - side: The side of the order (buy/sell).
-    - volume: The number of shares to order.
-    - client_user: The username of the client placing the order.
+    - order.ticker: Target ticker symbol.
+    - order.side: Order side (`buy` or `sell`).
+    - order.volume: Requested share quantity.
+    - order.client_user: Username of the submitting client.
 
     Returns:
-    - order_id if successful, or an error message.
+    - Public UUID order ID.
     """
     ticker = order.ticker
     side = order.side
@@ -233,13 +233,13 @@ async def cancel_order(
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Cancel an order for a stock.
+    Cancel an existing order.
 
     Parameters:
-    - order_id: The ID of the order to cancel.
+    - request.order_id: Public UUID order ID.
 
     Returns:
-    - success message if successful, or an error message.
+    - Public order ID plus a status/message payload.
     """
 
     order_id = to_internal_order_id(request.order_id)
@@ -271,15 +271,15 @@ async def edit_order(
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Edit an existing order for a stock.
+    Edit an existing order.
 
     Parameters:
-    - order_id: The ID of the order to edit.
-    - price: The new price for the order.
-    - volume: The new volume for the order.
+    - request.order_id: Public UUID order ID.
+    - request.price: Replacement limit price.
+    - request.volume: Replacement total order volume.
 
     Returns:
-    - success message if successful, or an error message.
+    - Public order ID plus a status/message payload.
     """
     order_id = to_internal_order_id(request.order_id)
     if order_id < 0:
@@ -389,13 +389,13 @@ async def get_volume_at_price(ticker: str, side: str, price: float):
 
 async def get_all_asks(ticker: str):
     """
-    Get all ask orders for a stock.
+    Get the full visible ask side of the book for a ticker.
 
     Parameters:
-    - ticker: The ticker of the order book.
+    - ticker: The ticker symbol to inspect.
 
     Returns:
-    - list of all ask orders if successful, or an error message.
+    - List of public order-book levels. Each row uses a public UUID `order_id`.
     """
 
     print(f"Getting all asks for stock {ticker}")
@@ -416,13 +416,13 @@ async def get_all_asks(ticker: str):
 
 async def get_all_bids(ticker: str):
     """
-    Get all bid orders for a stock.
+    Get the full visible bid side of the book for a ticker.
 
     Parameters:
-    - ticker: The ticker of the order book.
+    - ticker: The ticker symbol to inspect.
 
     Returns:
-    - list of all bid orders if successful, or an error message.
+    - List of public order-book levels. Each row uses a public UUID `order_id`.
     """
 
     print(f"Getting all bids for stock {ticker}")
@@ -511,6 +511,15 @@ async def get_order_status(
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
+    """
+    Fetch status for a single order owned by the authenticated actor.
+
+    Parameters:
+    - order_id: Public UUID order ID.
+
+    Returns:
+    - Public order status payload including remaining/executed volume.
+    """
     internal_order_id = to_internal_order_id(order_id)
     if internal_order_id < 0:
         raise HTTPException(status_code=400, detail="Order id must be non-negative.")
@@ -550,13 +559,13 @@ async def get_client_by_email(
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Used to get a client from the backend by its email.
+    Fetch a public client payload by email.
 
     Parameters:
-    - email: The email we are looking for.
+    - email: Target client email address.
 
     Returns:
-    - The object of the client if it exists or None otherwise.
+    - Public client object if it exists.
     """
 
     _assert_actor_matches_email(email, x_actor_email)
@@ -569,20 +578,20 @@ async def get_client_by_email(
     return _serialize_public_client(client)
 
 
-# need to add a proper username and a proper password.
-# need to add stock for every ticker !!!!
 async def add_new_client(
     client_data: ClientData,
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
     """
-    Used to get information of a client based on its email. If it doesn not exist, create a new client
+    Return the client for an email, creating and seeding one if needed.
 
     Parameters:
-    - email, first name and last name
+    - client_data.email: Client email address.
+    - client_data.first_name: First name to store for new clients.
+    - client_data.last_name: Last name to store for new clients.
 
     Returns:
-    - The object of the client
+    - Public client object.
     """
     _assert_actor_matches_email(client_data.email, x_actor_email)
     queryClient = Client.get_client_by_email(client_data.email)
