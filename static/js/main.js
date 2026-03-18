@@ -11,6 +11,11 @@ import {
   getOrderbookSocketAddresses,
   getSharedConstants,
 } from './config/sharedConstants.js';
+import {
+  applyLandingSnapshot,
+  createLandingPreviewState,
+  toFiniteNumber,
+} from './landingPreview.mjs';
 
 export var loggedIn = false;
 let client_socket = null;
@@ -19,54 +24,9 @@ let landingTickers = [];
 const landingMarketState = {};
 let landingPreviewInitPromise = null;
 
-function toFiniteNumber(value) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
-
 function formatPrice(value) {
   const numericValue = toFiniteNumber(value);
   return numericValue === null ? value : numericValue.toFixed(2);
-}
-
-function ensureLandingTickerState(ticker, fallbackPrice = null) {
-  if (!landingMarketState[ticker]) {
-    landingMarketState[ticker] = {
-      ticker,
-      price: fallbackPrice,
-      bid: '--',
-      ask: '--',
-    };
-  }
-
-  return landingMarketState[ticker];
-}
-
-function applyLandingSnapshot(ticker, snapshot = {}, fallbackPrice = null) {
-  const state = ensureLandingTickerState(ticker, fallbackPrice);
-  const bestBid = toFiniteNumber(snapshot.best_bid);
-  const bestAsk = toFiniteNumber(snapshot.best_ask);
-  const lastPrice = toFiniteNumber(snapshot.last_price);
-  const resolvedFallbackPrice = toFiniteNumber(fallbackPrice);
-  const displayPrice =
-    bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0
-      ? (bestBid + bestAsk) / 2
-      : lastPrice ?? resolvedFallbackPrice ?? state.price;
-
-  landingMarketState[ticker] = {
-    ticker,
-    price: displayPrice,
-    bid: bestBid ?? state.bid,
-    ask: bestAsk ?? state.ask,
-  };
 }
 
 function renderLandingPreview() {
@@ -113,15 +73,12 @@ async function initializeLandingPreviewState() {
 
   landingPreviewInitPromise = (async () => {
     const sharedConstants = await getSharedConstants();
-    const configuredTickers = Array.isArray(sharedConstants.backend?.tickers)
-      ? sharedConstants.backend.tickers.map((ticker) => String(ticker))
-      : [];
-    const openingPrices = sharedConstants.backend?.opening_prices ?? {};
-
-    landingTickers = configuredTickers;
-    landingTickers.forEach((ticker) => {
-      applyLandingSnapshot(ticker, {}, openingPrices[ticker] ?? null);
+    const previewState = createLandingPreviewState(sharedConstants);
+    landingTickers = previewState.tickers;
+    Object.keys(landingMarketState).forEach((ticker) => {
+      delete landingMarketState[ticker];
     });
+    Object.assign(landingMarketState, previewState.marketState);
     renderLandingPreview();
 
     await Promise.all(
@@ -135,7 +92,12 @@ async function initializeLandingPreviewState() {
           }
 
           const snapshot = await response.json();
-          applyLandingSnapshot(ticker, snapshot, openingPrices[ticker] ?? null);
+          applyLandingSnapshot(
+            landingMarketState,
+            ticker,
+            snapshot,
+            previewState.openingPrices[ticker] ?? null,
+          );
         } catch (error) {
           console.error(`Failed to hydrate landing market preview for ${ticker}:`, error);
         }
@@ -186,7 +148,7 @@ async function connectLandingMarketFeed() {
           return;
         }
 
-        applyLandingSnapshot(ticker, snapshot);
+        applyLandingSnapshot(landingMarketState, ticker, snapshot);
       });
       renderLandingPreview();
     });
