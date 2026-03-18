@@ -203,6 +203,25 @@ async function submitPortfolioOrderEdit(order, nextPrice, nextQuantity, button) 
   }
 }
 
+async function fetchPortfolioOrderStatus(orderId) {
+  const identityHeaderNames = await getIdentityHeaderNames();
+  const response = await fetch(
+    `/api/order_status?order_id=${encodeURIComponent(orderId)}`,
+    {
+      headers: {
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function openEditOrderModal(order, button) {
   const overlay = document.createElement('div');
   overlay.classList.add('portfolio-edit-modal');
@@ -227,6 +246,7 @@ function openEditOrderModal(order, button) {
 
   const [priceInput, quantityInput] = overlay.querySelectorAll('input');
   const [closeButton, saveButton] = overlay.querySelectorAll('button');
+  const summary = overlay.querySelector('.portfolio-edit-summary');
 
   const closeModal = () => {
     if (overlay.isConnected) {
@@ -261,6 +281,19 @@ function openEditOrderModal(order, button) {
   });
 
   document.body.appendChild(overlay);
+  void fetchPortfolioOrderStatus(order.order_id)
+    .then((status) => {
+      if (!summary.isConnected) {
+        return;
+      }
+
+      const filledVolume = Number(status.executed_volume) || 0;
+      const totalVolume = Number(status.total_volume) || Number(order.volume);
+      summary.textContent = `${formatOrderLabel(order)} (${filledVolume}/${totalVolume})`;
+    })
+    .catch((error) => {
+      console.error('Failed to load order status for edit modal:', error);
+    });
   priceInput.focus();
   priceInput.select();
 }

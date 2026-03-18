@@ -1,5 +1,4 @@
 // js/components/search.js
-import { drawMiniChart } from './miniChart.js';
 import { stockDataPrices }       from '../data/stockData.js';
 import { openStockDetail } from './stockDetails.js';
 
@@ -42,18 +41,9 @@ export function initSearchView() {
       card.innerHTML = `
         <h3 class="stock-name">${stockName}</h3>
         <div class="stock-price">Price: $${latestPrice}</div>
-        <div class="mini-chart-container"></div>
       `;
       card.addEventListener('click', () => openStockDetail(stockName));
       stocksGrid.appendChild(card);
-
-      // Draw the mini chart
-      const chartContainer = card.querySelector('.mini-chart-container');
-      drawMiniChart(chartContainer, dataPoints, {
-        width: 100,
-        height: 40,
-        yKey: 'price'
-      });
     }
   }
 }
