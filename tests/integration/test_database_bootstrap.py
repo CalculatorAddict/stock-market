@@ -2,7 +2,7 @@ import sqlite3
 
 from fastapi.testclient import TestClient
 
-from app.shared_constants import DEMO_CLIENTS
+from app.shared_constants import BOT_CLIENTS, DEMO_CLIENTS
 from database import ensure_database_exists
 from models.client import Client
 
@@ -62,14 +62,14 @@ def test_app_startup_seeds_demo_clients_on_empty_database(
         rows = cursor.fetchall()
         connection.close()
 
-    assert len(rows) == len(DEMO_CLIENTS)
+    assert len(rows) == len(DEMO_CLIENTS) + len(BOT_CLIENTS)
 
     by_username = {username: (email, balance) for username, email, balance in rows}
-    for demo_client in DEMO_CLIENTS:
-        assert demo_client["username"] in by_username
-        email, balance = by_username[demo_client["username"]]
-        assert email == demo_client["email"]
-        assert balance == demo_client["balance"]
+    for seeded_client in [*DEMO_CLIENTS, *BOT_CLIENTS]:
+        assert seeded_client["username"] in by_username
+        email, balance = by_username[seeded_client["username"]]
+        assert email == seeded_client["email"]
+        assert balance == seeded_client["balance"]
 
 
 def test_app_startup_normalizes_demo_client_identity(app_module):

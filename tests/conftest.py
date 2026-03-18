@@ -17,8 +17,11 @@ if str(ROOT_DIR) not in sys.path:
 from engine.order_book import OrderBook
 from engine.portfolio_value import PortfolioValue
 from app.price_history import clear_history_state
+from app.shared_constants import DEMO_CLIENTS
 from models.client import Client
 from models.order import Order
+
+DEFAULT_DEMO_CLIENT = DEMO_CLIENTS[0]
 
 
 def _restore_database_from_backup(db_path: Path, backup: Path) -> None:
@@ -129,8 +132,8 @@ def api_client(app_module):
     with TestClient(
         app_module.app,
         headers={
-            "X-Actor-User": "tapple",
-            "X-Actor-Email": "timcook@aol.com",
+            "X-Actor-User": DEFAULT_DEMO_CLIENT["username"],
+            "X-Actor-Email": DEFAULT_DEMO_CLIENT["email"],
         },
     ) as client:
         yield client

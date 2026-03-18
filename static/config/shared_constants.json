@@ -55,6 +55,34 @@
           "TSLA": 50
         }
       }
+    ],
+    "bot_clients": [
+      {
+        "username": "bot_alpha",
+        "password": "pw",
+        "email": "bot.alpha@demo.local",
+        "first_names": "Bot",
+        "last_name": "Alpha",
+        "balance": 5000,
+        "portfolio": {
+          "AAPL": 50,
+          "GOOG": 50,
+          "TSLA": 50
+        }
+      },
+      {
+        "username": "bot_beta",
+        "password": "pw",
+        "email": "bot.beta@demo.local",
+        "first_names": "Bot",
+        "last_name": "Beta",
+        "balance": 5000,
+        "portfolio": {
+          "AAPL": 50,
+          "GOOG": 50,
+          "TSLA": 50
+        }
+      }
     ]
   }
 }

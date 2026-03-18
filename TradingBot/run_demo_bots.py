@@ -6,8 +6,8 @@ from TradingBot.TradingBot import TradingBot
 
 BOT_PROFILES = [
     {
-        "client_user": "amorgan",
-        "client_email": "alex.morgan@demo.local",
+        "client_user": "bot_alpha",
+        "client_email": "bot.alpha@demo.local",
         "min_quote_size": 1,
         "max_quote_size": 4,
         "min_trade_interval": 0.35,
@@ -18,8 +18,8 @@ BOT_PROFILES = [
         "cancel_probability": 0.35,
     },
     {
-        "client_user": "jlee",
-        "client_email": "jordan.lee@demo.local",
+        "client_user": "bot_beta",
+        "client_email": "bot.beta@demo.local",
         "min_quote_size": 2,
         "max_quote_size": 5,
         "min_trade_interval": 0.4,

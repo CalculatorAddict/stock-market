@@ -11,7 +11,7 @@ def test_place_order_happy_path(api_client: TestClient):
             "side": "buy",
             "price": 250.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response.status_code == 200
@@ -28,7 +28,7 @@ def test_place_order_invalid_ticker(api_client: TestClient):
             "side": "buy",
             "price": 250.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response.status_code == 404
@@ -43,7 +43,7 @@ def test_place_order_invalid_side(api_client: TestClient):
             "side": "up",
             "price": 250.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response.status_code == 400
@@ -58,7 +58,7 @@ def test_place_order_rejects_non_positive_price(api_client: TestClient):
             "side": "buy",
             "price": 0.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response.status_code == 400
@@ -72,7 +72,7 @@ def test_market_order_invalid_volume(api_client: TestClient):
             "ticker": "AAPL",
             "side": "buy",
             "volume": 0,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response.status_code == 400
@@ -87,7 +87,7 @@ def test_cancel_order_happy_path_and_structure(api_client: TestClient):
             "side": "buy",
             "price": 251.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     order_id = order_response.json()
@@ -115,7 +115,7 @@ def test_edit_order_happy_path_and_structure(api_client: TestClient):
             "side": "buy",
             "price": 252.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     order_id = order_response.json()
@@ -141,7 +141,7 @@ def test_edit_order_invalid_price_or_volume(api_client: TestClient):
             "side": "buy",
             "price": 254.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     order_id = order_response.json()

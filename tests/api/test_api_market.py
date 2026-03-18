@@ -11,7 +11,7 @@ def test_get_best_success(api_client: TestClient):
             "side": "buy",
             "price": 100.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     bid_2 = api_client.post(
@@ -21,7 +21,7 @@ def test_get_best_success(api_client: TestClient):
             "side": "buy",
             "price": 101.5,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     ask_1 = api_client.post(
@@ -31,7 +31,7 @@ def test_get_best_success(api_client: TestClient):
             "side": "sell",
             "price": 104.0,
             "volume": 1,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     ask_2 = api_client.post(
@@ -41,7 +41,7 @@ def test_get_best_success(api_client: TestClient):
             "side": "sell",
             "price": 103.0,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
 
@@ -67,7 +67,7 @@ def test_get_best_bid_success(api_client: TestClient):
             "side": "buy",
             "price": 120.25,
             "volume": 3,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response_place.status_code == 200
@@ -86,7 +86,7 @@ def test_get_best_ask_success(api_client: TestClient):
             "side": "sell",
             "price": 130.75,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert response_place.status_code == 200
@@ -131,7 +131,7 @@ def test_static_mount_is_available(api_client: TestClient):
 def test_place_order_returns_422_for_missing_required_fields(api_client: TestClient):
     response = api_client.post(
         "/api/place_order",
-        json={"ticker": "AAPL", "price": 100.0, "volume": 1, "client_user": "tapple"},
+        json={"ticker": "AAPL", "price": 100.0, "volume": 1, "client_user": "amorgan"},
     )
 
     assert response.status_code == 422
@@ -140,7 +140,7 @@ def test_place_order_returns_422_for_missing_required_fields(api_client: TestCli
 def test_market_order_happy_path_no_match_returns_order_id(api_client: TestClient):
     response = api_client.post(
         "/api/market_order",
-        json={"ticker": "AAPL", "side": "buy", "volume": 1, "client_user": "tapple"},
+        json={"ticker": "AAPL", "side": "buy", "volume": 1, "client_user": "amorgan"},
     )
 
     assert response.status_code == 200

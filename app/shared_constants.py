@@ -38,4 +38,6 @@ ORDERBOOK_WS_FALLBACK = _required("frontend.websocket.orderbook_fallback")
 BACKEND_TICKERS = _required("backend.tickers")
 BACKEND_OPENING_PRICES = _required("backend.opening_prices")
 DEMO_CLIENTS = _required("backend.demo_clients")
+BOT_CLIENTS = _required("backend.bot_clients")
+SEEDED_CLIENTS = [*DEMO_CLIENTS, *BOT_CLIENTS]
 DEMO_API_INFO = _required("backend.demo")

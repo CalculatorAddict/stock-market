@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from app.persistence import ORDERBOOK_STATE_TABLE
 
 DEFAULT_ACTOR_HEADERS = {
-    "X-Actor-User": "tapple",
-    "X-Actor-Email": "timcook@aol.com",
+    "X-Actor-User": "amorgan",
+    "X-Actor-Email": "alex.morgan@demo.local",
 }
 
 
@@ -37,7 +37,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_sta
                 "side": "buy",
                 "price": 333.0,
                 "volume": 2,
-                "client_user": "tapple",
+                "client_user": "amorgan",
             },
         )
         assert response.status_code == 200
@@ -90,7 +90,7 @@ def test_shutdown_does_not_persist_canceled_orders(app_module):
                 "side": "buy",
                 "price": 250.0,
                 "volume": 1,
-                "client_user": "tapple",
+                "client_user": "amorgan",
             },
         )
         assert response.status_code == 200

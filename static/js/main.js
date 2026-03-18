@@ -42,8 +42,8 @@ function applySignedOutState(loginSelect, loginBtn, signOutBtn) {
 
 async function loadDemoAccounts(loginSelect) {
   const fallbackAccounts = [
-    { username: 'tapple', email: 'timcook@aol.com' },
-    { username: 'goat', email: 'lbj@nba.com' },
+    { username: 'amorgan', email: 'alex.morgan@demo.local' },
+    { username: 'jlee', email: 'jordan.lee@demo.local' },
   ];
 
   let accounts = fallbackAccounts;
