@@ -3,7 +3,7 @@
 import argparse
 import asyncio
 
-from trading_bot.market_maker import MarketMaker
+from market_maker import MarketMaker
 
 
 BOT_PROFILES = [

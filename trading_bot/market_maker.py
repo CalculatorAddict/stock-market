@@ -11,7 +11,8 @@ from datetime import timedelta
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
-from trading_bot.trading_bot import TradingBot
+
+from trading_bot import TradingBot
 
 
 class MarketMaker(TradingBot):
