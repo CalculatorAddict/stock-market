@@ -115,8 +115,6 @@ def restore_orderbook_state() -> None:
         Order._all_orders = {}
         Order.counter = 0
 
-    cursor.execute(f"DELETE FROM {ORDERBOOK_STATE_TABLE}")
-    connection.commit()
     connection.close()
 
 

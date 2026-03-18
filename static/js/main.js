@@ -8,10 +8,168 @@ import { portfolioPerformanceData } from './data/portfolioPerformance.js';
 import {
   getClientInfoSocketAddresses,
   getIdentityHeaderNames,
+  getOrderbookSocketAddresses,
 } from './config/sharedConstants.js';
 
 export var loggedIn = false;
 let client_socket = null;
+let landingMarketSocket = null;
+const LANDING_TICKERS = ['AAPL', 'GOOG', 'TSLA'];
+const landingMarketState = {
+  AAPL: { ticker: 'AAPL', price: 32.0, bid: 240, ask: 260 },
+  GOOG: { ticker: 'GOOG', price: 18.0, bid: 180, ask: 210 },
+  TSLA: { ticker: 'TSLA', price: 24.0, bid: 205, ask: 225 },
+};
+
+function toFiniteNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function formatPrice(value) {
+  const numericValue = toFiniteNumber(value);
+  return numericValue === null ? value : numericValue.toFixed(2);
+}
+
+function renderLandingPreview() {
+  const rowsContainer = document.getElementById('landing-orderbook-rows');
+  if (!rowsContainer) {
+    return;
+  }
+
+  rowsContainer.innerHTML = LANDING_TICKERS
+    .map((ticker) => landingMarketState[ticker])
+    .map(
+      (row) => `
+        <div class="landing-orderbook-row">
+          <span class="landing-orderbook-ticker">${row.ticker}</span>
+          <span class="landing-orderbook-price">$${row.price.toFixed(2)}</span>
+          <span class="landing-orderbook-bid">${formatPrice(row.bid)}</span>
+          <span class="landing-orderbook-ask">${formatPrice(row.ask)}</span>
+        </div>
+      `,
+    )
+    .join('');
+}
+
+function startLandingPreview() {
+  renderLandingPreview();
+  if (landingMarketSocket !== null) {
+    return;
+  }
+
+  void connectLandingMarketFeed();
+}
+
+function stopLandingPreview() {
+  if (landingMarketSocket) {
+    landingMarketSocket.close();
+    landingMarketSocket = null;
+  }
+}
+
+async function connectLandingMarketFeed() {
+  const rowsContainer = document.getElementById('landing-orderbook-rows');
+  if (!rowsContainer || loggedIn) {
+    return;
+  }
+
+  const addresses = await getOrderbookSocketAddresses();
+  const socket = new WebSocket(addresses.primary);
+  landingMarketSocket = socket;
+
+  const bindSocketEvents = (activeSocket, fallbackAddress = null) => {
+    activeSocket.addEventListener('message', (event) => {
+      const payload = JSON.parse(event.data);
+      LANDING_TICKERS.forEach((ticker) => {
+        const snapshot = payload?.[ticker];
+        if (!snapshot) {
+          return;
+        }
+
+        const bestBid = toFiniteNumber(snapshot.best_bid);
+        const bestAsk = toFiniteNumber(snapshot.best_ask);
+        const lastPrice = toFiniteNumber(snapshot.last_price);
+        const displayPrice =
+          bestBid !== null && bestAsk !== null && bestBid > 0 && bestAsk > 0
+            ? (bestBid + bestAsk) / 2
+            : lastPrice ?? landingMarketState[ticker].price;
+
+        landingMarketState[ticker] = {
+          ticker,
+          price: displayPrice,
+          bid: bestBid ?? landingMarketState[ticker].bid,
+          ask: bestAsk ?? landingMarketState[ticker].ask,
+        };
+      });
+      renderLandingPreview();
+    });
+
+    activeSocket.addEventListener('close', () => {
+      if (landingMarketSocket === activeSocket) {
+        landingMarketSocket = null;
+      }
+    });
+
+    activeSocket.addEventListener('error', () => {
+      if (!fallbackAddress || activeSocket !== landingMarketSocket) {
+        return;
+      }
+
+      activeSocket.close();
+      const fallbackSocket = new WebSocket(fallbackAddress);
+      landingMarketSocket = fallbackSocket;
+      bindSocketEvents(fallbackSocket, null);
+    });
+  };
+
+  bindSocketEvents(socket, addresses.fallback);
+}
+
+function initLandingAccordions() {
+  const triggers = document.querySelectorAll('.landing-accordion-trigger');
+  triggers.forEach((trigger) => {
+    trigger.addEventListener('click', () => {
+      const panel = trigger.nextElementSibling;
+      const expanded = trigger.getAttribute('aria-expanded') === 'true';
+      trigger.setAttribute('aria-expanded', String(!expanded));
+      panel.hidden = expanded;
+    });
+  });
+}
+
+function syncAuthShell() {
+  const landing = document.getElementById('preauth-landing');
+  const authenticatedPortfolio = document.getElementById('authenticated-portfolio');
+  const portfolioNavButton = document.getElementById('nav-portfolio');
+
+  if (landing) {
+    landing.hidden = loggedIn;
+  }
+  if (authenticatedPortfolio) {
+    authenticatedPortfolio.hidden = !loggedIn;
+  }
+  if (portfolioNavButton) {
+    portfolioNavButton.setAttribute(
+      'aria-label',
+      loggedIn ? 'Portfolio' : 'Home',
+    );
+  }
+
+  if (loggedIn) {
+    stopLandingPreview();
+  } else {
+    startLandingPreview();
+  }
+}
 
 function applySignedOutState(loginSelect, loginBtn, signOutBtn) {
   if (client_socket) {
@@ -33,6 +191,7 @@ function applySignedOutState(loginSelect, loginBtn, signOutBtn) {
   userData.pnl = 'N/A';
   userData.holdings = [];
 
+  syncAuthShell();
   populatePortfolio();
 
   loginSelect.disabled = false;
@@ -125,11 +284,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginSelect = document.getElementById('static-login-user');
   const loginBtn = document.getElementById('static-login-btn');
   const signOutBtn = document.getElementById('static-signout-btn');
+  const landingSignInBtn = document.getElementById('landing-signin-btn');
 
   await loadDemoAccounts(loginSelect);
   signOutBtn.style.display = 'none';
+  initLandingAccordions();
+  syncAuthShell();
 
-  loginBtn.addEventListener('click', async () => {
+  const handleSignIn = async () => {
     const selected = loginSelect.options[loginSelect.selectedIndex];
     if (!selected) {
       return;
@@ -155,6 +317,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       loggedIn = true;
+      syncAuthShell();
       loginSelect.disabled = true;
       loginBtn.style.display = 'none';
       signOutBtn.style.display = 'inline-block';
@@ -167,6 +330,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       loginBtn.disabled = false;
     }
+  };
+
+  loginBtn.addEventListener('click', handleSignIn);
+  landingSignInBtn?.addEventListener('click', () => {
+    document.getElementById('nav-settings')?.click();
   });
 
   signOutBtn.addEventListener('click', () => {

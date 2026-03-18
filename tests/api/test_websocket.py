@@ -1,4 +1,5 @@
 import json
+from importlib import import_module, reload
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -105,7 +106,10 @@ def test_orderbook_state_persists_across_testclient_restarts(
         assert response.status_code == 200
         order_id = response.json()
 
-    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as restarted_client:
+    restarted_app_module = reload(import_module("app.main"))
+    with TestClient(
+        restarted_app_module.app, headers=DEFAULT_ACTOR_HEADERS
+    ) as restarted_client:
         response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
 
     assert response.status_code == 200

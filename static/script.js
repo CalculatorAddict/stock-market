@@ -412,6 +412,10 @@ async function handleTrade(stock, type, stockBox) {
 function populateOrderBook(stock, container) {
   const bidsTbody = container.querySelector('.bids-section tbody');
   const asksTbody = container.querySelector('.asks-section tbody');
+  const formatPrice = (value) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue.toFixed(2) : value;
+  };
 
   // Clear any previous rows
   bidsTbody.innerHTML = "";
@@ -438,7 +442,7 @@ function populateOrderBook(stock, container) {
           //console.log(order.volume, order.price);
           const row = document.createElement('tr');
           const amount = order.price * order.volume;
-          row.innerHTML = `<td>${order.price}</td><td>${order.volume}</td><td>${amount}</td>`;
+          row.innerHTML = `<td>${formatPrice(order.price)}</td><td>${order.volume}</td><td>${formatPrice(amount)}</td>`;
           bidsTbody.appendChild(row);
         });
       }
@@ -467,7 +471,7 @@ function populateOrderBook(stock, container) {
         data.forEach(order => {
           const row = document.createElement('tr');
           const amount = order.price * order.volume;
-          row.innerHTML = `<td>${order.price}</td><td>${order.volume}</td><td>${amount}</td>`;
+          row.innerHTML = `<td>${formatPrice(order.price)}</td><td>${order.volume}</td><td>${formatPrice(amount)}</td>`;
           asksTbody.appendChild(row);
         });
     }

@@ -6,6 +6,15 @@ const ownedOrderIds = new Set();
 let ownedOrderIdsLoaded = false;
 let pendingOwnedOrderRefresh = null;
 
+function formatPrice(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+
+  return numericValue.toFixed(2);
+}
+
 function resetOwnershipCacheIfActorChanged() {
   const nextActorKey = `${userData.username || ''}|${userData.email || ''}`;
   if (nextActorKey === ownershipActorKey) {
@@ -142,7 +151,7 @@ function buildOrderRow(order) {
   const row = document.createElement('tr');
 
   const priceCell = document.createElement('td');
-  priceCell.textContent = order.price;
+  priceCell.textContent = formatPrice(order.price);
 
   const volumeCell = document.createElement('td');
   const levelContent = document.createElement('div');

@@ -660,8 +660,9 @@ export function initPortfolioView() {
   headerGraph = drawDetailedGraph(graphDiv, loggedIn ? portfolioPerformanceData : [], {
     height: 200,
     yKey: 'value',
-    xTickCount: 4,
-    mobileXTickCount: 3,
+    xTickCount: 2,
+    mobileXTickCount: 2,
+    centerXAxisLabels: true,
     resizeOnWindow: true,
   });
   bindOrderbookRefresh();
@@ -698,6 +699,7 @@ export function populatePortfolio() {
     return;
   }
 
+  headerGraph?.resize?.();
   updateHeader();
   startLivePortfolioInterval();
   void hydratePortfolioHistory();

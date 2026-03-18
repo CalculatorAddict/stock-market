@@ -978,3 +978,229 @@ body,
     color 0.4s ease,
     box-shadow 0.4s ease;
 }
+
+.authenticated-portfolio[hidden],
+.landing-shell[hidden] {
+  display: none !important;
+}
+
+.landing-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 12px 0 8px;
+}
+
+.landing-hero,
+.landing-preview-card,
+.landing-accordion {
+  background:
+    linear-gradient(180deg, rgba(84, 94, 255, 0.16), rgba(7, 10, 22, 0.04)),
+    var(--card-bg);
+  border: 1px solid rgba(125, 138, 255, 0.14);
+  border-radius: 24px;
+  box-shadow: 0 24px 50px rgba(3, 8, 28, 0.28);
+}
+
+.landing-hero {
+  padding: 34px 24px 28px;
+  text-align: center;
+}
+
+.landing-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a9b5ff;
+  background: rgba(111, 124, 255, 0.14);
+  border: 1px solid rgba(121, 133, 255, 0.24);
+}
+
+.landing-title {
+  margin-top: 16px;
+  font-size: clamp(2.25rem, 7vw, 3.2rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: #f7f8ff;
+}
+
+.landing-subtitle {
+  margin: 14px auto 0;
+  max-width: 28rem;
+  font-size: 1rem;
+  color: #a0a7c8;
+}
+
+.landing-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.landing-cta {
+  min-width: 154px;
+  border-radius: 16px;
+  border: none;
+  padding: 13px 18px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.landing-cta:hover {
+  transform: translateY(-1px);
+}
+
+.landing-cta--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #6b7cff, #8e67ff);
+  box-shadow: 0 14px 28px rgba(82, 92, 255, 0.34);
+}
+
+.landing-cta--secondary {
+  color: #d8ddff;
+  background: rgba(126, 137, 255, 0.1);
+  border: 1px solid rgba(126, 137, 255, 0.22);
+}
+
+.landing-preview-card {
+  padding: 20px 18px 18px;
+}
+
+.landing-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.landing-section-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #f3f5ff;
+}
+
+.landing-live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #9ba7ff;
+}
+
+.landing-live-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6f7dff;
+  box-shadow: 0 0 16px rgba(111, 125, 255, 0.9);
+}
+
+.landing-orderbook {
+  border-radius: 18px;
+  background: rgba(7, 11, 24, 0.44);
+  border: 1px solid rgba(124, 136, 255, 0.12);
+  overflow: hidden;
+}
+
+.landing-orderbook-header,
+.landing-orderbook-row {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 11px 14px;
+}
+
+.landing-orderbook-header {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7f88b5;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.landing-orderbook-row {
+  color: #eff2ff;
+  border-top: 1px solid rgba(123, 134, 255, 0.08);
+}
+
+.landing-orderbook-ticker {
+  font-weight: 800;
+  color: #aeb9ff;
+}
+
+.landing-orderbook-price {
+  font-weight: 700;
+}
+
+.landing-orderbook-bid {
+  color: #89d5b5;
+}
+
+.landing-orderbook-ask {
+  color: #f6a2a2;
+}
+
+.landing-features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.landing-accordion {
+  padding: 18px 16px;
+}
+
+.landing-accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: transparent;
+  border: none;
+  color: #f1f4ff;
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.landing-accordion-icon {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  color: #94a0ff;
+  transition: transform 180ms ease;
+}
+
+.landing-accordion-trigger[aria-expanded="true"] .landing-accordion-icon {
+  transform: rotate(45deg);
+}
+
+.landing-accordion-panel {
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: #98a3c4;
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .landing-orderbook-header,
+  .landing-orderbook-row {
+    grid-template-columns: 0.9fr 1fr 1fr 1fr;
+  }
+}

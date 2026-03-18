@@ -1,4 +1,5 @@
 import sqlite3
+from importlib import import_module, reload
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -26,7 +27,7 @@ def _fetch_persisted_rows():
     return rows
 
 
-def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_state(
+def test_shutdown_persists_open_limit_order_then_startup_restores_and_keeps_state(
     app_module,
 ):
     with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as client:
@@ -56,7 +57,10 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_sta
         2,
     )
 
-    with TestClient(app_module.app, headers=DEFAULT_ACTOR_HEADERS) as restarted_client:
+    restarted_app_module = reload(import_module("app.main"))
+    with TestClient(
+        restarted_app_module.app, headers=DEFAULT_ACTOR_HEADERS
+    ) as restarted_client:
         response = restarted_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
         assert response.status_code == 200
         assert any(
@@ -65,8 +69,7 @@ def test_shutdown_persists_open_limit_order_then_startup_restores_and_clears_sta
             and order["volume"] == 2
             for order in response.json()
         )
-        # Startup restore should consume persisted state rows.
-        assert _fetch_persisted_rows() == []
+        assert len(_fetch_persisted_rows()) == 1
 
     # On shutdown, open orders are persisted again.
     rows_after_second_shutdown = _fetch_persisted_rows()

@@ -11,35 +11,90 @@
     <main id="view-container">
       <!-- Portfolio View -->
       <section id="portfolio-view" class="view active">
-        <div class="view-header">
-  <div class="header-content">
+        <div id="preauth-landing" class="landing-shell">
+          <section class="landing-hero">
+            <div class="landing-badge">Simulated exchange environment</div>
+            <h1 class="landing-title">Simulated Stock Exchange</h1>
+            <p class="landing-subtitle">Place orders and watch them match in real time</p>
+            <div class="landing-actions">
+              <button id="landing-signin-btn" class="landing-cta landing-cta--primary">
+                Sign in
+              </button>
+            </div>
+          </section>
 
-    <!-- Top row: title -->
-    <div id="portfolio-title" class="portfolio-title"></div>
+          <section class="landing-preview-card">
+            <div class="landing-section-head">
+              <span class="landing-section-title">Live Market Preview</span>
+              <span class="landing-live-dot">Live</span>
+            </div>
+            <div class="landing-orderbook">
+              <div class="landing-orderbook-header">
+                <span>Ticker</span>
+                <span>Price</span>
+                <span>Bid</span>
+                <span>Ask</span>
+              </div>
+              <div id="landing-orderbook-rows" class="landing-orderbook-body"></div>
+            </div>
+          </section>
 
+          <section class="landing-features">
+            <article class="landing-accordion">
+              <button class="landing-accordion-trigger" type="button" aria-expanded="true">
+                <span>Real-time matching engine</span>
+                <span class="landing-accordion-icon">+</span>
+              </button>
+              <div class="landing-accordion-panel">
+                Submit orders into a live simulated market and watch the book, spread, and trades
+                react in real time.
+              </div>
+            </article>
+            <article class="landing-accordion">
+              <button class="landing-accordion-trigger" type="button" aria-expanded="false">
+                <span>Price-time priority execution</span>
+                <span class="landing-accordion-icon">+</span>
+              </button>
+              <div class="landing-accordion-panel" hidden>
+                Explore realistic queue behavior where better prices execute first and equal prices
+                follow strict arrival order.
+              </div>
+            </article>
+            <article class="landing-accordion">
+              <button class="landing-accordion-trigger" type="button" aria-expanded="false">
+                <span>Portfolio and PnL tracking</span>
+                <span class="landing-accordion-icon">+</span>
+              </button>
+              <div class="landing-accordion-panel" hidden>
+                After sign-in, track filled orders, current holdings, and live mark-to-market
+                performance from the same exchange feed.
+              </div>
+            </article>
+          </section>
+        </div>
 
-
-    <!-- Middle row: picture + balance -->
-    <div class="header-main">
-      <img
-        id="header-pic"
-        class="profile-pic header-pic"
-        src="assets/logo.jpg"
-        alt="User profile picture"
-      />
-      <div class="balance-large" id="balance-header"></div>
-    </div>
-
-    <!-- Bottom row: PnL -->
-    <div class="pnl-small" id="pnl-header"></div>
-  </div>
-
-  <div class="portfolio-graph-container" id="header-graph"></div>
-	</div>
+        <div id="authenticated-portfolio" class="authenticated-portfolio" hidden>
+          <div class="view-header">
+            <div class="header-content">
+              <div id="portfolio-title" class="portfolio-title"></div>
+              <div class="header-main">
+                <img
+                  id="header-pic"
+                  class="profile-pic header-pic"
+                  src="assets/logo.jpg"
+                  alt="User profile picture"
+                />
+                <div class="balance-large" id="balance-header"></div>
+              </div>
+              <div class="pnl-small" id="pnl-header"></div>
+            </div>
+            <div class="portfolio-graph-container" id="header-graph"></div>
+	        </div>
 
 	        <div class="portfolio-list" id="portfolio-list">
 	          <!-- Portfolio rows will be dynamically generated here -->
 	        </div>
+        </div>
       </section>
 
       <!-- Search View -->

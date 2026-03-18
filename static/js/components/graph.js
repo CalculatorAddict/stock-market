@@ -201,6 +201,10 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
     const xTickLabels = xAxisGroup.selectAll(".tick text");
     xTickLabels.attr("text-anchor", "middle").attr("dx", null);
 
+    if (config.centerXAxisLabels === true) {
+      return;
+    }
+
     xTickLabels
       .filter((_datum, index, nodes) => index === 0)
       .attr("text-anchor", "start")
@@ -383,6 +387,9 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
     update(snapshot = {}) {
       const now = appendSample(snapshot);
       refreshLiveChart(now);
+    },
+    resize() {
+      render();
     },
     replaceData(nextData = []) {
       sortedData = normalizeData(nextData);
