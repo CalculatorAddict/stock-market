@@ -86,7 +86,7 @@ async function connectLandingMarketFeed() {
   const socket = new WebSocket(addresses.primary);
   landingMarketSocket = socket;
 
-  const bindSocketEvents = (activeSocket, fallbackAddress = null) => {
+  const bindSocketEvents = (activeSocket) => {
     activeSocket.addEventListener('message', (event) => {
       const payload = JSON.parse(event.data);
       LANDING_TICKERS.forEach((ticker) => {
@@ -119,19 +119,12 @@ async function connectLandingMarketFeed() {
       }
     });
 
-    activeSocket.addEventListener('error', () => {
-      if (!fallbackAddress || activeSocket !== landingMarketSocket) {
-        return;
-      }
-
-      activeSocket.close();
-      const fallbackSocket = new WebSocket(fallbackAddress);
-      landingMarketSocket = fallbackSocket;
-      bindSocketEvents(fallbackSocket, null);
+    activeSocket.addEventListener('error', (error) => {
+      console.error('Landing market websocket failed:', error);
     });
   };
 
-  bindSocketEvents(socket, addresses.fallback);
+  bindSocketEvents(socket);
 }
 
 function initLandingAccordions() {
@@ -181,6 +174,7 @@ function applySignedOutState(loginSelect, loginBtn, signOutBtn) {
 
   userData.name = 'Guest';
   userData.email = '';
+  userData.clientInfoToken = '';
   userData.profilePicUrl = '';
   userData.first_name = 'Guest';
   userData.last_name = 'User';
@@ -365,6 +359,27 @@ async function addClient(client_data) {
   return data;
 }
 
+async function fetchClientInfoToken(email) {
+  const identityHeaderNames = await getIdentityHeaderNames();
+  const response = await fetch(
+    `/api/client_info_token?email=${encodeURIComponent(email)}`,
+    {
+      headers: {
+        [identityHeaderNames.user]: userData.username,
+        [identityHeaderNames.email]: userData.email,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  userData.clientInfoToken = payload.token;
+  return payload.token;
+}
+
 // WebSocket used to update client data and the portfolio view
 async function connectClientSocket(email) {
   // Close the existing WebSocket connection if it exists
@@ -376,7 +391,7 @@ async function connectClientSocket(email) {
   // Define primary and fallback WebSocket addresses
   const addresses = await getClientInfoSocketAddresses();
   const primaryAddress = addresses.primary;
-  const fallbackAddress = addresses.fallback;
+  const token = await fetchClientInfoToken(email);
 
   // Create a new WebSocket connection
   client_socket = new WebSocket(primaryAddress);
@@ -384,29 +399,18 @@ async function connectClientSocket(email) {
   // Handle connection open
   client_socket.addEventListener('open', () => {
     console.log(`Connected to Client Info for client with email: ${email}`);
-    // Send the updated email to subscribe to client info
-    client_socket.send(email);
+    client_socket.send(
+      JSON.stringify({
+        email,
+        token,
+      }),
+    );
   });
 
   // Handle errors
   client_socket.addEventListener('error', (error) => {
     console.error(`Failed to connect to ${primaryAddress}:`, error);
-    console.log('Attempting to connect to fallback WebSocket address...');
-
-    // Try connecting to the fallback address
-    client_socket = new WebSocket(fallbackAddress);
-
-    client_socket.addEventListener('open', () => {
-      console.log(
-        `Connected to Client Info at ${fallbackAddress} for client with email: ${email}`,
-      );
-      client_socket.send(email); // Send the updated email to subscribe to client info
-    });
-
-    client_socket.addEventListener('error', (fallbackError) => {
-      console.error(`Failed to connect to ${fallbackAddress}:`, fallbackError);
-      alert('Unable to connect to the WebSocket server. Please try again later.');
-    });
+    alert('Unable to connect to the local WebSocket server. Please verify the app is running.');
   });
 
   // Handle incoming messages

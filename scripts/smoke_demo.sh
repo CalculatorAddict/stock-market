@@ -9,8 +9,13 @@ cd "$ROOT_DIR"
 LOG_FILE="/tmp/stock-smoke.log"
 OUT_FILE="/tmp/stock-smoke.json"
 
-# Ensure port is free
-kill -9 $(lsof -t -i:8000) 2>/dev/null || true
+# Refuse to run if another process already owns the demo port.
+EXISTING_PID="$(lsof -t -iTCP:8000 -sTCP:LISTEN 2>/dev/null || true)"
+if [ -n "$EXISTING_PID" ]; then
+  echo "Refusing to run smoke demo: port 8000 is already in use by PID $EXISTING_PID."
+  echo "Stop that process first or run the demo on a different port."
+  exit 1
+fi
 
 echo "Creating/updating virtual environment with uv..."
 [ -d ".venv" ] || uv venv

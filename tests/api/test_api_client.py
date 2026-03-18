@@ -66,3 +66,27 @@ def test_get_client_by_email_rejects_mismatched_actor_email(api_client):
     )
     assert response.status_code == 403
     assert response.json()["detail"] == "Actor email does not match target user."
+
+
+def test_client_info_token_returns_signed_subscription_token(api_client):
+    response = api_client.get(
+        "/api/client_info_token",
+        params={"email": "alex.morgan@demo.local"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == "alex.morgan@demo.local"
+    assert isinstance(body["token"], str)
+    assert "." in body["token"]
+
+
+def test_client_info_token_rejects_mismatched_actor(api_client):
+    response = api_client.get(
+        "/api/client_info_token",
+        params={"email": "alex.morgan@demo.local"},
+        headers={"X-Actor-Email": "other@example.com"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Actor email does not match target user."

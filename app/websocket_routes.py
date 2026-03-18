@@ -4,12 +4,15 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket
 from fastapi.encoders import jsonable_encoder
+from starlette.websockets import WebSocketDisconnect
+from pydantic import ValidationError
 
+from app.client_info_auth import authenticate_client_info_token
 from app.id_codec import to_public_order_id
+from app.schemas import ClientInfoWebSocketSubscription
 from engine.order_book import OrderBook
 from engine.portfolio_value import PortfolioValue
 from market_constants import TICKERS
-from models.client import Client
 
 
 async def websocket_endpoint(
@@ -65,26 +68,44 @@ async def websocket_endpoint(
         print(f"OrderBook WebSocket error: {e}")
 
 
+async def _reject_client_info_subscription(websocket: WebSocket, message: str) -> None:
+    await websocket.send_text(json.dumps({"error": message}))
+    await websocket.close(code=1008)
+
+
 async def client_info_websocket(websocket: WebSocket):
     """
     WebSocket endpoint to send client information (balance and portfolio).
     """
     await websocket.accept()
     try:
-        # Receive the client's username from the WebSocket
-        email = await websocket.receive_text()
-        print(f"Client subscribed for information: {email}")
+        subscription = ClientInfoWebSocketSubscription.model_validate_json(
+            await websocket.receive_text()
+        )
+    except ValidationError:
+        await _reject_client_info_subscription(
+            websocket,
+            "First message must be JSON with both email and token.",
+        )
+        return
+    except WebSocketDisconnect:
+        return
+    except Exception as e:
+        print(f"Client Info WebSocket error: {e}")
+        await websocket.close(code=1011)
+        return
 
-        # Fetch the client object
-        client = Client.get_client_by_email(email)
-        if not client:
-            await websocket.send_text(
-                json.dumps({"error": f"Client with email {email} not found"})
-            )
-            await websocket.close()
-            return
+    client = authenticate_client_info_token(subscription.email, subscription.token)
+    if client is None:
+        await _reject_client_info_subscription(
+            websocket,
+            "Invalid client_info subscription token.",
+        )
+        return
 
-        # Periodically send client information
+    print(f"Client subscribed for information: {client.email}")
+
+    try:
         while True:
             pval = PortfolioValue.current_value(client)
             pnl = {}
@@ -100,8 +121,12 @@ async def client_info_websocket(websocket: WebSocket):
             }
             await websocket.send_text(json.dumps(client_info))
             await asyncio.sleep(1)  # Send updates every second
+    except WebSocketDisconnect:
+        return
     except Exception as e:
         print(f"Client Info WebSocket error: {e}")
+        await websocket.close(code=1011)
+        return
 
 
 def register_websocket_routes(app: FastAPI) -> None:

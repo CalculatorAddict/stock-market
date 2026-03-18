@@ -42,6 +42,16 @@ class ClientData(BaseModel):
     last_name: str
 
 
+class ClientInfoTokenResponse(BaseModel):
+    email: str
+    token: str
+
+
+class ClientInfoWebSocketSubscription(BaseModel):
+    email: str
+    token: str
+
+
 class PublicClientResponse(BaseModel):
     client_id: str
     username: str

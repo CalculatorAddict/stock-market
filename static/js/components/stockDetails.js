@@ -330,7 +330,6 @@ function bindOrderbookSocketMessageHandler(activeSocket) {
 async function connectOrderbookSocket() {
   const addresses = await getOrderbookSocketAddresses();
   const primarySocketAddress = addresses.primary;
-  const fallbackSocketAddress = addresses.fallback;
 
   socket = new WebSocket(primarySocketAddress);
   bindOrderbookSocketMessageHandler(socket);
@@ -341,21 +340,7 @@ async function connectOrderbookSocket() {
 
   socket.addEventListener("error", (error) => {
     console.error(`Failed to connect to ${primarySocketAddress}:`, error);
-    console.log("Attempting to connect to fallback WebSocket address...");
-
-    socket = new WebSocket(fallbackSocketAddress);
-    bindOrderbookSocketMessageHandler(socket);
-
-    socket.addEventListener("open", () => {
-      console.log(`Connected to OrderBook WebSocket`);
-    });
-    socket.addEventListener("error", (fallbackError) => {
-      console.error(`Failed to connect to ${fallbackSocketAddress}:`, fallbackError);
-      console.log("Unable to connect to the WebSocket server. Please try again later.");
-    });
-    socket.addEventListener("close", () => {
-      console.log("OrderBook WebSocket connection closed");
-    });
+    console.log("Unable to connect to the local WebSocket server. Please verify the app is running.");
   });
 
   socket.addEventListener("close", () => {

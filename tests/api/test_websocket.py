@@ -12,6 +12,12 @@ DEFAULT_ACTOR_HEADERS = {
 }
 
 
+def _get_client_info_token(client: TestClient, email: str) -> str:
+    response = client.get("/api/client_info_token", params={"email": email})
+    assert response.status_code == 200
+    return response.json()["token"]
+
+
 def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     bid_1 = api_client.post(
         "/api/place_order",
@@ -119,3 +125,51 @@ def test_orderbook_state_persists_across_testclient_restarts(
         and order["volume"] == 1
         for order in response.json()
     )
+
+
+def test_client_info_websocket_requires_signed_json_subscription(
+    api_client: TestClient,
+):
+    with api_client.websocket_connect("/client_info") as websocket:
+        websocket.send_text("alex.morgan@demo.local")
+        payload = json.loads(websocket.receive_text())
+
+    assert payload == {"error": "First message must be JSON with both email and token."}
+
+
+def test_client_info_websocket_rejects_invalid_token(api_client: TestClient):
+    with api_client.websocket_connect("/client_info") as websocket:
+        websocket.send_text(
+            json.dumps(
+                {
+                    "email": "alex.morgan@demo.local",
+                    "token": "invalid-token",
+                }
+            )
+        )
+        payload = json.loads(websocket.receive_text())
+
+    assert payload == {"error": "Invalid client_info subscription token."}
+
+
+def test_client_info_websocket_streams_for_valid_signed_subscription(
+    api_client: TestClient,
+):
+    token = _get_client_info_token(api_client, "alex.morgan@demo.local")
+
+    with api_client.websocket_connect("/client_info") as websocket:
+        websocket.send_text(
+            json.dumps(
+                {
+                    "email": "alex.morgan@demo.local",
+                    "token": token,
+                }
+            )
+        )
+        payload = json.loads(websocket.receive_text())
+
+    assert payload["balance"] >= 0
+    assert isinstance(payload["portfolio"], dict)
+    assert set(payload["pnlInfo"].keys()) == set(TICKERS)
+    assert "portfolioValue" in payload
+    assert "portfolioPnl" in payload

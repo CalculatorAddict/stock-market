@@ -7,9 +7,9 @@
     "google_client_id": "933623916878-ipovfk31uqvoidtvj5pcknkod3ggdter.apps.googleusercontent.com",
     "websocket": {
       "client_info_primary": "ws://localhost:8000/client_info",
-      "client_info_fallback": "ws://mtomecki.pl:8000/client_info",
+      "client_info_fallback": "ws://localhost:8000/client_info",
       "orderbook_primary": "ws://localhost:8000/ws",
-      "orderbook_fallback": "ws://mtomecki.pl:8000/ws"
+      "orderbook_fallback": "ws://localhost:8000/ws"
     }
   },
   "backend": {

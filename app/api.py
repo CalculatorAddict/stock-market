@@ -15,6 +15,7 @@ from app.schemas import (
     CancelOrderResponse,
     CancelOrderRequest,
     ClientData,
+    ClientInfoTokenResponse,
     EditOrderRequest,
     EditOrderResponse,
     DemoResponse,
@@ -30,6 +31,7 @@ from app.schemas import (
     PublicTransaction,
     VolumeAtPriceResponse,
 )
+from app.client_info_auth import issue_client_info_token
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
 from app.price_history import (
     DEFAULT_WINDOW_SECONDS,
@@ -731,6 +733,33 @@ async def add_new_client(
         return _serialize_public_client(client)
 
 
+async def get_client_info_token(
+    email: str,
+    x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
+    x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
+):
+    """
+    Return a short-lived websocket subscription token for `/client_info`.
+
+    Parameters:
+    - email: Target client email address.
+
+    Returns:
+    - `{email, token}` payload for the authenticated client.
+    """
+    client = Client.get_client_by_email(email)
+    if client is None:
+        raise HTTPException(
+            status_code=404, detail=f"Client with email {email} not found."
+        )
+
+    _assert_actor_matches_client(client, x_actor_user, x_actor_email)
+    return {
+        "email": client.email,
+        "token": issue_client_info_token(client),
+    }
+
+
 def register_api_routes(app: FastAPI) -> None:
     app.post("/api/place_order", response_model=OrderIdResponse)(place_order)
     app.post("/api/market_order", response_model=OrderIdResponse)(market_order)
@@ -758,3 +787,6 @@ def register_api_routes(app: FastAPI) -> None:
         get_client_by_email
     )
     app.post("/api/add_new_client", response_model=PublicClientResponse)(add_new_client)
+    app.get("/api/client_info_token", response_model=ClientInfoTokenResponse)(
+        get_client_info_token
+    )

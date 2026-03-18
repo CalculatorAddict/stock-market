@@ -2,6 +2,7 @@
 export var userData = {
     name: "Guest",
     email: "",
+    clientInfoToken: "",
     profilePicUrl: "",
     first_name: "Alice",
     last_name: "Alice",
