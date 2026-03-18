@@ -10,6 +10,23 @@ import {
   getOrderbookSocketAddresses
 } from '../config/sharedConstants.js';
 
+async function fetchInitialPriceHistory(stockName, windowSeconds = 60) {
+  const response = await fetch(
+    `/prices?ticker=${encodeURIComponent(stockName)}&window=${windowSeconds}`
+  );
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload
+    .map((point) => ({
+      date: new Date(point.date),
+      price: Number(point.price),
+    }))
+    .filter((point) => Number.isFinite(point.date.getTime()) && Number.isFinite(point.price));
+}
+
 // Opens a modal showing detailed info & order form for a given stock
 export function openStockDetail(stockName) {
   // Create the modal container
@@ -85,10 +102,25 @@ export function openStockDetail(stockName) {
 
   // Draw the chart once modal is in DOM
   const graphContainer = modal.querySelector('.graph-container');
-  setTimeout(() => {
+  void (async () => {
+    let initialGraphData = stockDataPrices[stockName];
+    try {
+      const hydratedData = await fetchInitialPriceHistory(stockName);
+      if (hydratedData.length) {
+        stockDataPrices[stockName] = hydratedData;
+        initialGraphData = hydratedData;
+      }
+    } catch (error) {
+      console.error(`Failed to hydrate initial price history for ${stockName}:`, error);
+    }
+
+    if (!graphContainer.isConnected) {
+      return;
+    }
+
     const graph = drawDetailedGraph(
       graphContainer,
-      stockDataPrices[stockName],
+      initialGraphData,
       {
         height: 200,
         yKey: 'price',
@@ -97,7 +129,17 @@ export function openStockDetail(stockName) {
       }
     );
     activeStockGraphs[stockName] = graph;
-  }, 0);
+
+    if (stockDataDynamic[stockName]) {
+      graph.update({
+        price: stockDataDynamic[stockName].last_price,
+        best_bid: stockDataDynamic[stockName].best_bid,
+        best_ask: stockDataDynamic[stockName].best_ask,
+        timestamp: stockDataDynamic[stockName].last_timestamp,
+        server_time: stockDataDynamic[stockName].server_time,
+      });
+    }
+  })();
 
   // Show/hide limit price input on order-type change
   const orderTypeInputs = modal.querySelectorAll('input[name="order-type"]');
