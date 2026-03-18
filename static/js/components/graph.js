@@ -1,6 +1,7 @@
 export function drawDetailedGraph(containerElement, data, config = {}) {
   const defaultMargin = { top: 20, right: 20, bottom: 40, left: 68 };
   const margin = { ...defaultMargin, ...(config.margin || {}) };
+  const minLeftMargin = margin.left;
   const valueKey = config.yKey || "value";
   const clipId = `clip-${Math.random().toString(36).slice(2)}`;
   const liveWindowMs = config.liveWindowMs || 60_000;
@@ -35,15 +36,9 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
 
       d3svg = d3.select(svgEl).attr("width", width).attr("height", height);
 
-      xAxisGroup = d3svg
-        .append("g")
-        .attr("class", "x-axis")
-        .attr("transform", `translate(0,${height - margin.bottom})`);
+      xAxisGroup = d3svg.append("g").attr("class", "x-axis");
 
-      yAxisGroup = d3svg
-        .append("g")
-        .attr("class", "y-axis")
-        .attr("transform", `translate(${margin.left},0)`);
+      yAxisGroup = d3svg.append("g").attr("class", "y-axis");
 
       gridGroup = d3svg.append("g").attr("class", "y-grid");
       lineGroup = d3svg.append("g").attr("class", "line-group");
@@ -53,10 +48,7 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
         .append("clipPath")
         .attr("id", clipId)
         .append("rect")
-        .attr("x", margin.left)
-        .attr("y", margin.top)
-        .attr("width", width - margin.left - margin.right)
-        .attr("height", height - margin.top - margin.bottom);
+        .attr("y", margin.top);
 
       lineGroup.attr("clip-path", `url(#${clipId})`);
 
@@ -67,25 +59,26 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       firstBuild = false;
     } else {
       d3svg.attr("width", width).attr("height", height);
-      xAxisGroup.attr("transform", `translate(0,${height - margin.bottom})`);
-      yAxisGroup.attr("transform", `translate(${margin.left},0)`);
-      d3svg
-        .select(`clipPath#${clipId} rect`)
-        .attr("width", width - margin.left - margin.right)
-        .attr("height", height - margin.top - margin.bottom);
     }
 
+    syncLayout();
     refreshLiveChart(new Date());
+  }
+
+  function syncLayout() {
+    xAxisGroup.attr("transform", `translate(0,${height - margin.bottom})`);
+    yAxisGroup.attr("transform", `translate(${margin.left},0)`);
+    d3svg
+      .select(`clipPath#${clipId} rect`)
+      .attr("x", margin.left)
+      .attr("y", margin.top)
+      .attr("width", Math.max(0, width - margin.left - margin.right))
+      .attr("height", Math.max(0, height - margin.top - margin.bottom));
   }
 
   function refreshLiveChart(now) {
     const xDomain = getRollingDomain(now);
     trimOlderThan(xDomain[0]);
-
-    currentXScale = d3
-      .scaleTime()
-      .domain(xDomain)
-      .range([margin.left, width - margin.right]);
 
     emptyStateText
       .attr("x", width / 2)
@@ -94,11 +87,15 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       .attr("dominant-baseline", "middle");
 
     const numTicks = width < 400 ? 4 : 6;
-    xAxisGroup.call(
-      d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
-    );
 
     if (!sortedData.length) {
+      currentXScale = d3
+        .scaleTime()
+        .domain(xDomain)
+        .range([margin.left, width - margin.right]);
+      xAxisGroup.call(
+        d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
+      );
       lineGroup.selectAll("path").remove();
       yAxisGroup.selectAll("*").remove();
       gridGroup.selectAll("*").remove();
@@ -128,6 +125,19 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       .domain([yMin - yPad, yMax + yPad])
       .range([height - margin.bottom, margin.top]);
 
+    const yAxisFormatter = getYAxisFormatter();
+    margin.left = getRequiredLeftMargin(globalYScale, yAxisFormatter);
+    syncLayout();
+
+    currentXScale = d3
+      .scaleTime()
+      .domain(xDomain)
+      .range([margin.left, width - margin.right]);
+
+    xAxisGroup.call(
+      d3.axisBottom(currentXScale).ticks(numTicks).tickFormat(xTickFormat)
+    );
+
     const isGain =
       lineData[lineData.length - 1].price >= lineData[0].price;
 
@@ -145,7 +155,6 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       .attr("stroke-width", 3)
       .attr("d", lineGenerator);
 
-    const yAxisFormatter = getYAxisFormatter();
     yAxisGroup.call(
       d3
         .axisLeft(globalYScale)
@@ -333,6 +342,15 @@ export function drawDetailedGraph(containerElement, data, config = {}) {
       return Math.max(Math.abs(maxValue) * 0.02, 1);
     }
     return span * 0.02;
+  }
+
+  function getRequiredLeftMargin(yScale, formatter) {
+    const labels = yScale.ticks(6).map((tick) => String(formatter(tick)));
+    const longestLabelLength = labels.reduce(
+      (longest, label) => Math.max(longest, label.length),
+      0
+    );
+    return Math.max(minLeftMargin, 20 + longestLabelLength * 8);
   }
 
   render();
