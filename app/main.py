@@ -11,7 +11,7 @@ from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.price_history import sample_portfolio_values, sample_prices
 from app.persistence import persist_orderbook_state, restore_orderbook_state
-from app.shared_constants import DEMO_CLIENTS
+from app.shared_constants import SEEDED_CLIENTS
 from engine.portfolio_value import PortfolioValue
 from engine.order_book import OrderBook
 from market_constants import TICKERS
@@ -23,7 +23,7 @@ order_books = [OrderBook(ticker) for ticker in TICKERS]
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    ensure_database_exists(seed_clients=DEMO_CLIENTS)
+    ensure_database_exists(seed_clients=SEEDED_CLIENTS)
     restore_orderbook_state()
     sample_prices()
     sample_portfolio_values()
@@ -60,7 +60,7 @@ app.add_middleware(
 )
 
 
-def _ensure_demo_client(
+def _ensure_seed_client(
     username: str,
     password: str,
     email: str,
@@ -70,40 +70,23 @@ def _ensure_demo_client(
 ) -> Client:
     existing = Client.get_client_by_username(username)
     if existing is not None:
-        if existing.email != email:
-            Client._clients_by_email.pop(existing.email, None)
-            existing.email = email
-            Client._clients_by_email[email] = existing
-        existing.first_names = first_names
-        existing.last_name = last_name
         existing.balance = max(existing.balance, balance)
         return existing
 
     return Client(username, password, email, first_names, last_name, balance=balance)
 
 
-demo_clients_by_username = {}
-for demo_client in DEMO_CLIENTS:
-    client = _ensure_demo_client(
-        demo_client["username"],
-        demo_client.get("password", "pw"),
-        demo_client["email"],
-        demo_client.get("first_names", ""),
-        demo_client.get("last_name", ""),
-        balance=demo_client.get("balance", 0),
+for seed_client in SEEDED_CLIENTS:
+    client = _ensure_seed_client(
+        seed_client["username"],
+        seed_client.get("password", "pw"),
+        seed_client["email"],
+        seed_client.get("first_names", ""),
+        seed_client.get("last_name", ""),
+        balance=seed_client.get("balance", 0),
     )
-    for ticker, volume in demo_client.get("portfolio", {}).items():
+    for ticker, volume in seed_client.get("portfolio", {}).items():
         client.portfolio[ticker] = volume
-    demo_clients_by_username[client.username] = client
-
-client1 = demo_clients_by_username.get("tapple")
-client2 = demo_clients_by_username.get("goat")
-bot = demo_clients_by_username.get("market_maker")
-bot2 = demo_clients_by_username.get("market_maker2")
-# client1.buy_stock(0, 0, 100)
-
-# print(Client.get_client_by_id(0))
-# print(Client.get_client_by_id(1))
 
 
 # Serve static files from the "static" folder at root ("/")
@@ -157,7 +140,7 @@ async def update_daily_portfolio_value():
 # TICK_SECONDS = 0.5
 # _last_price   = {ob.ticker: MIDS[ob.ticker] for ob in order_books}
 # _gen_orders   = {ob.ticker: [] for ob in order_books}
-# MM_CLIENT     = bot2
+# MM_CLIENT     = None
 
 # # AR(1) price model
 # async def price_feed_loop():

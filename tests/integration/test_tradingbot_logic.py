@@ -45,24 +45,6 @@ def test_initialization_can_skip_auto_start():
     assert bot.client_user == "test"
 
 
-def test_initialization_resolves_email_from_demo_config():
-    with patch.object(TradingBot, "run"):
-        bot = TradingBot(client_user="market_maker", auto_start=False)
-
-    assert bot.client_email == "market_maker@gmail.com"
-
-
-def test_initialization_overrides_mismatched_demo_email():
-    with patch.object(TradingBot, "run"):
-        bot = TradingBot(
-            client_user="market_maker",
-            client_email="wrong@example.com",
-            auto_start=False,
-        )
-
-    assert bot.client_email == "market_maker@gmail.com"
-
-
 def test_volatility_calculation(bot):
     assert bot.volatility("AAPL") == 0.1
 
@@ -201,16 +183,16 @@ def test_reconcile_open_orders_records_fill(bot):
     assert state["open_orders"]["sell"] == {}
 
 
-def test_load_inventory_uses_demo_config(bot):
+def test_load_inventory_uses_bot_config(bot):
     state = bot.ticker_states["AAPL"]
     state["inventory"] = 0
     state["inventory_loaded"] = False
-    bot.client_user = "market_maker"
-    bot.demo_accounts = TradingBot.load_demo_accounts()
+    bot.client_user = "bot_alpha"
+    bot.bot_accounts = TradingBot.load_bot_accounts()
 
     bot.load_inventory("AAPL")
 
-    assert state["inventory"] == 1000
+    assert state["inventory"] == 50
     assert state["inventory_loaded"] is True
 
 

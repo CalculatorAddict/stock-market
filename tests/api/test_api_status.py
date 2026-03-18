@@ -9,7 +9,7 @@ def test_order_status_open(api_client):
             "side": "buy",
             "price": 210.0,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     order_id = order_response.json()
@@ -28,13 +28,13 @@ def test_order_status_open(api_client):
 def test_order_status_partially_filled(api_client):
     ask_response = api_client.post(
         "/api/place_order",
-        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
             "ticker": "AAPL",
             "side": "sell",
             "price": 100.0,
             "volume": 5,
-            "client_user": "goat",
+            "client_user": "jlee",
         },
     )
     ask_order_id = ask_response.json()
@@ -46,7 +46,7 @@ def test_order_status_partially_filled(api_client):
             "side": "buy",
             "price": 100.0,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     assert buy_response.status_code == 200
@@ -54,7 +54,7 @@ def test_order_status_partially_filled(api_client):
     response = api_client.get(
         "/api/order_status",
         params={"order_id": ask_order_id},
-        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
     )
     assert response.status_code == 200
     body = response.json()
@@ -74,20 +74,20 @@ def test_order_status_filled(api_client):
             "side": "buy",
             "price": 120.0,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     buy_order_id = buy_response.json()
 
     sell_response = api_client.post(
         "/api/place_order",
-        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
             "ticker": "AAPL",
             "side": "sell",
             "price": 120.0,
             "volume": 2,
-            "client_user": "goat",
+            "client_user": "jlee",
         },
     )
     assert sell_response.status_code == 200
@@ -110,7 +110,7 @@ def test_order_status_canceled(api_client):
             "side": "buy",
             "price": 130.0,
             "volume": 2,
-            "client_user": "tapple",
+            "client_user": "amorgan",
         },
     )
     order_id = order_response.json()
@@ -141,17 +141,17 @@ def test_order_status_invalid_uuid_and_missing_order(api_client):
 def test_order_status_rejects_mismatched_actor(api_client):
     order_response = api_client.post(
         "/api/place_order",
-        headers={"X-Actor-User": "goat", "X-Actor-Email": "lbj@nba.com"},
+        headers={"X-Actor-User": "jlee", "X-Actor-Email": "jordan.lee@demo.local"},
         json={
             "ticker": "AAPL",
             "side": "sell",
             "price": 200.0,
             "volume": 1,
-            "client_user": "goat",
+            "client_user": "jlee",
         },
     )
-    goat_order_id = order_response.json()
+    jlee_order_id = order_response.json()
 
-    response = api_client.get("/api/order_status", params={"order_id": goat_order_id})
+    response = api_client.get("/api/order_status", params={"order_id": jlee_order_id})
     assert response.status_code == 403
     assert response.json()["detail"] == "Actor username does not match target user."

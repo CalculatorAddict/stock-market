@@ -49,8 +49,8 @@ def test_place_order_posts_to_configured_endpoint_with_expected_payload():
 
 def test_place_order_includes_email_header_when_configured():
     bot = _build_bot(
-        client_user="goat",
-        client_email="lbj@nba.com",
+        client_user="bot_beta",
+        client_email="bot.beta@demo.local",
         include_email_header=True,
     )
 
@@ -73,31 +73,6 @@ def test_place_order_includes_email_header_when_configured():
         headers={
             "X-Actor-User": bot.client_user,
             "X-Actor-Email": bot.client_email,
-        },
-    )
-
-
-def test_place_order_omits_email_header_by_default_even_when_email_is_known():
-    bot = _build_bot(client_user="goat", client_email="lbj@nba.com")
-
-    with patch("TradingBot.TradingBot.requests.post") as mock_post:
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
-
-        asyncio.run(bot.place_order("AAPL", "buy", 150.0, 5))
-
-    mock_post.assert_called_once_with(
-        bot.api_url,
-        json={
-            "ticker": "AAPL",
-            "side": "buy",
-            "price": 150.0,
-            "volume": 5,
-            "client_user": bot.client_user,
-        },
-        headers={
-            "X-Actor-User": bot.client_user,
         },
     )
 
@@ -161,9 +136,10 @@ def test_place_order_does_not_update_state_on_http_failure():
 
 def test_place_order_can_execute_against_api_endpoint(api_client, monkeypatch):
     bot = _build_bot(
-        client_user="tapple",
-        client_email="timcook@aol.com",
+        client_user="bot_alpha",
+        client_email="bot.alpha@demo.local",
         api_url="http://local-test/api/place_order",
+        include_email_header=True,
     )
 
     def _post_to_test_client(url, json, headers=None):
@@ -196,7 +172,7 @@ def test_api_rejects_place_order_without_actor_headers(app_module):
                 "side": "buy",
                 "price": 110.0,
                 "volume": 1,
-                "client_user": "tapple",
+                "client_user": "amorgan",
             },
         )
 

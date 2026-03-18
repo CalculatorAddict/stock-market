@@ -94,31 +94,15 @@ def _assert_actor_matches_client(
     normalized_email = _normalize_identity(actor_email)
 
     if normalized_user is not None and normalized_user != client.username.lower():
-        detail = (
-            "Actor username does not match target user. "
-            f"actor_user={normalized_user} target_user={client.username.lower()}"
-        )
-        print(
-            f"{detail} actor_email={normalized_email} target_email={client.email.lower()}",
-            flush=True,
-        )
         raise HTTPException(
             status_code=403,
-            detail=detail,
+            detail="Actor username does not match target user.",
         )
 
     if normalized_email is not None and normalized_email != client.email.lower():
-        detail = (
-            "Actor email does not match target user. "
-            f"actor_email={normalized_email} target_email={client.email.lower()}"
-        )
-        print(
-            f"{detail} actor_user={normalized_user} target_user={client.username.lower()}",
-            flush=True,
-        )
         raise HTTPException(
             status_code=403,
-            detail=detail,
+            detail="Actor email does not match target user.",
         )
 
 
@@ -131,15 +115,9 @@ def _assert_actor_matches_email(request_email: str, actor_email: str | None) -> 
         )
 
     if normalized_actor_email != request_email.strip().lower():
-        detail = (
-            "Actor email does not match target user. "
-            f"actor_email={normalized_actor_email} "
-            f"target_email={request_email.strip().lower()}"
-        )
-        print(detail, flush=True)
         raise HTTPException(
             status_code=403,
-            detail=detail,
+            detail="Actor email does not match target user.",
         )
 
 

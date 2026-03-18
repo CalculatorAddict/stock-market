@@ -20,7 +20,7 @@ class TradingBot:
         print(message, flush=True)
 
     @staticmethod
-    def load_demo_accounts():
+    def load_bot_accounts():
         config_path = (
             Path(__file__).resolve().parent.parent
             / "static"
@@ -30,7 +30,7 @@ class TradingBot:
         try:
             with config_path.open() as config_file:
                 shared_constants = json.load(config_file)
-            accounts = shared_constants.get("backend", {}).get("demo_clients", [])
+            accounts = shared_constants.get("backend", {}).get("bot_clients", [])
             return {
                 account["username"]: account
                 for account in accounts
@@ -39,9 +39,14 @@ class TradingBot:
         except Exception:
             return {}
 
+    @staticmethod
+    def default_bot_username():
+        accounts = TradingBot.load_bot_accounts()
+        return next(iter(accounts), "demo_bot")
+
     def __init__(
         self,
-        client_user: str = "market_maker",
+        client_user: str | None = None,
         client_email: str | None = None,
         api_url: str = "http://localhost:8000/api/place_order",
         websocket_url: str = "ws://localhost:8000/ws",
@@ -59,15 +64,12 @@ class TradingBot:
         include_email_header: bool = False,
         auto_start: bool = True,
     ):
-        self.demo_accounts = self.load_demo_accounts()
-        account = self.demo_accounts.get(client_user)
+        self.bot_accounts = self.load_bot_accounts()
+        if client_user is None:
+            client_user = self.default_bot_username()
+        account = self.bot_accounts.get(client_user)
         self.client_user = client_user
         resolved_email = account.get("email") if account else None
-        if client_email and resolved_email and client_email != resolved_email:
-            self.log(
-                f"Bot identity mismatch for {client_user}: "
-                f"overriding email {client_email} with {resolved_email}"
-            )
         self.client_email = resolved_email or client_email
         self.api_url = api_url
         self.websocket_url = websocket_url
@@ -186,7 +188,7 @@ class TradingBot:
             return
 
         try:
-            account = self.demo_accounts.get(self.client_user)
+            account = self.bot_accounts.get(self.client_user)
             if account is not None:
                 state["inventory"] = int(account.get("portfolio", {}).get(ticker, 0))
         except Exception:
@@ -500,7 +502,7 @@ class TradingBot:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--client-user", default="market_maker")
+    parser.add_argument("--client-user", default=None)
     parser.add_argument("--client-email")
     parser.add_argument("--api-url", default="http://localhost:8000/api/place_order")
     parser.add_argument("--websocket-url", default="ws://localhost:8000/ws")
@@ -513,7 +515,6 @@ if __name__ == "__main__":
     parser.add_argument("--bias-probability", type=float, default=0.2)
     parser.add_argument("--cross-probability", type=float, default=0.15)
     parser.add_argument("--cancel-probability", type=float, default=0.3)
-    parser.add_argument("--include-email-header", action="store_true")
     args = parser.parse_args()
 
     TradingBot(
@@ -529,5 +530,4 @@ if __name__ == "__main__":
         bias_probability=args.bias_probability,
         cross_probability=args.cross_probability,
         cancel_probability=args.cancel_probability,
-        include_email_header=args.include_email_header,
     )
