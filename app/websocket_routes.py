@@ -1,12 +1,14 @@
 import asyncio
 import json
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, WebSocket
 from fastapi.encoders import jsonable_encoder
 
+from app.id_codec import to_public_order_id
 from engine.order_book import OrderBook
 from engine.portfolio_value import PortfolioValue
-from engine.tickers import TICKERS
+from market_constants import TICKERS
 from models.client import Client
 
 
@@ -18,6 +20,7 @@ async def websocket_endpoint(
         summary = dict()
         print(f"Client subscribed to order book")
         while True:
+            server_time = datetime.now(timezone.utc)
             for ticker in TICKERS:
                 best_bid = OrderBook.get_best_bid(ticker)
                 best_ask = OrderBook.get_best_ask(ticker)
@@ -32,7 +35,7 @@ async def websocket_endpoint(
                     "best_ask": best_ask,
                     "all_bids": [
                         {
-                            "order_id": order_id,
+                            "order_id": to_public_order_id(order_id),
                             "timestamp": timestamp,
                             "price": price,
                             "volume": volume,
@@ -42,7 +45,7 @@ async def websocket_endpoint(
                     ],
                     "all_asks": [
                         {
-                            "order_id": order_id,
+                            "order_id": to_public_order_id(order_id),
                             "timestamp": timestamp,
                             "price": price,
                             "volume": volume,
@@ -52,6 +55,7 @@ async def websocket_endpoint(
                     ],
                     "last_price": last_price,
                     "last_timestamp": last_timestamp,
+                    "server_time": server_time,
                     "pnl": pnl,
                 }
             encoded = jsonable_encoder(summary)

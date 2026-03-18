@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 
-from engine.tickers import TICKERS
+from market_constants import TICKERS
 
 
 def validate_ticker(ticker: str) -> str:

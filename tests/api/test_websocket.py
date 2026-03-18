@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 
@@ -66,6 +67,14 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
     assert isinstance(aapl_snapshot["all_asks"], list)
     assert aapl_snapshot["best_bid"] == 201.0
     assert aapl_snapshot["best_ask"] == 202.0
+    assert (
+        str(UUID(aapl_snapshot["all_bids"][0]["order_id"]))
+        == aapl_snapshot["all_bids"][0]["order_id"]
+    )
+    assert (
+        str(UUID(aapl_snapshot["all_asks"][0]["order_id"]))
+        == aapl_snapshot["all_asks"][0]["order_id"]
+    )
     assert set(aapl_snapshot.keys()) == {
         "ticker",
         "best_bid",
@@ -74,6 +83,7 @@ def test_ws_broadcast_contains_orderbook_snapshot(api_client: TestClient):
         "all_asks",
         "last_price",
         "last_timestamp",
+        "server_time",
         "pnl",
     }
 

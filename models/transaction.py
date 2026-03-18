@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Self
 
-from engine.tickers import OPENING_PRICES
+from market_constants import OPENING_PRICES
 from models.enums import BUY, SELL, LIMIT
 from models.order import Order
 from database import Database
