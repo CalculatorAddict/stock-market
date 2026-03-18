@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from database import ensure_database_exists
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
+from app.price_history import sample_prices
 from app.persistence import persist_orderbook_state, restore_orderbook_state
 from app.shared_constants import DEMO_CLIENTS
 from engine.portfolio_value import PortfolioValue
@@ -24,15 +25,23 @@ order_books = [OrderBook(ticker) for ticker in TICKERS]
 async def lifespan(_app: FastAPI):
     ensure_database_exists(seed_clients=DEMO_CLIENTS)
     restore_orderbook_state()
+    sample_prices()
+    price_history_task = asyncio.create_task(update_live_price_history())
     hourly_task = asyncio.create_task(update_hourly_stock_data())
     daily_task = asyncio.create_task(update_daily_portfolio_value())
     try:
         yield
     finally:
         persist_orderbook_state()
+        price_history_task.cancel()
         hourly_task.cancel()
         daily_task.cancel()
-        await asyncio.gather(hourly_task, daily_task, return_exceptions=True)
+        await asyncio.gather(
+            price_history_task,
+            hourly_task,
+            daily_task,
+            return_exceptions=True,
+        )
 
 
 # Initialize the app
@@ -111,6 +120,12 @@ async def update_hourly_stock_data():
         sleep_seconds = (next_hour - now).total_seconds()
         await asyncio.sleep(sleep_seconds)
         OrderBook.update_all_last_times(next_hour)
+
+
+async def update_live_price_history():
+    while True:
+        sample_prices()
+        await asyncio.sleep(1)
 
 
 async def update_daily_portfolio_value():

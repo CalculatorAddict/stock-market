@@ -103,6 +103,11 @@ class PublicTransaction(BaseModel):
     timestamp: str
 
 
+class PublicPricePoint(BaseModel):
+    date: datetime
+    price: float
+
+
 class OrderStatusResponse(BaseModel):
     order_id: str
     ticker: str

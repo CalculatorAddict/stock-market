@@ -24,10 +24,12 @@ from app.schemas import (
     OrderStatusResponse,
     PlaceOrderRequest,
     PublicClientResponse,
+    PublicPricePoint,
     PublicTransaction,
     VolumeAtPriceResponse,
 )
 from app.id_codec import to_internal_order_id, to_public_client_id, to_public_order_id
+from app.price_history import DEFAULT_WINDOW_SECONDS, get_price_history
 from app.shared_constants import (
     DEMO_API_INFO,
     DEMO_CLIENTS,
@@ -485,6 +487,27 @@ async def get_transactions(ticker: str, limit: int = 20):
     return transactions
 
 
+async def get_prices(ticker: str, window: int = DEFAULT_WINDOW_SECONDS):
+    """
+    Get recent sampled prices for a ticker.
+
+    Parameters:
+    - ticker: The ticker symbol to query.
+    - window: Rolling window size in seconds. Defaults to 60.
+
+    Returns:
+    - List of `{date, price}` points ordered from oldest to newest.
+    """
+    ticker = validate_ticker(ticker)
+    if window <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Window must be a positive integer.",
+        )
+
+    return get_price_history(ticker, window)
+
+
 async def get_demo() -> dict:
     demo_accounts = []
     for demo_client in DEMO_CLIENTS:
@@ -653,6 +676,7 @@ def register_api_routes(app: FastAPI) -> None:
     app.get("/api/transactions", response_model=list[PublicTransaction])(
         get_transactions
     )
+    app.get("/prices", response_model=list[PublicPricePoint])(get_prices)
     app.get("/api/demo", response_model=DemoResponse)(get_demo)
     app.get("/api/get_client_by_email", response_model=PublicClientResponse)(
         get_client_by_email
