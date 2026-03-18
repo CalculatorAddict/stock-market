@@ -10,6 +10,7 @@ def _build_bot(
     client_user: str = "test",
     client_email: str | None = None,
     api_url: str = "http://localhost:8000/api/place_order",
+    include_email_header: bool = False,
 ) -> TradingBot:
     with patch("TradingBot.TradingBot.TradingBot.listen_orderbook") as mock_listen:
         mock_listen.return_value = None
@@ -17,6 +18,7 @@ def _build_bot(
             client_user=client_user,
             client_email=client_email,
             api_url=api_url,
+            include_email_header=include_email_header,
         )
 
 
@@ -46,7 +48,11 @@ def test_place_order_posts_to_configured_endpoint_with_expected_payload():
 
 
 def test_place_order_includes_email_header_when_configured():
-    bot = _build_bot(client_user="goat", client_email="lbj@nba.com")
+    bot = _build_bot(
+        client_user="goat",
+        client_email="lbj@nba.com",
+        include_email_header=True,
+    )
 
     with patch("TradingBot.TradingBot.requests.post") as mock_post:
         mock_response = MagicMock()
@@ -71,42 +77,69 @@ def test_place_order_includes_email_header_when_configured():
     )
 
 
-def test_place_order_buy_updates_inventory_and_trade_log():
+def test_place_order_omits_email_header_by_default_even_when_email_is_known():
+    bot = _build_bot(client_user="goat", client_email="lbj@nba.com")
+
+    with patch("TradingBot.TradingBot.requests.post") as mock_post:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_post.return_value = mock_response
+
+        asyncio.run(bot.place_order("AAPL", "buy", 150.0, 5))
+
+    mock_post.assert_called_once_with(
+        bot.api_url,
+        json={
+            "ticker": "AAPL",
+            "side": "buy",
+            "price": 150.0,
+            "volume": 5,
+            "client_user": bot.client_user,
+        },
+        headers={
+            "X-Actor-User": bot.client_user,
+        },
+    )
+
+
+def test_place_order_buy_tracks_open_order_without_mutating_inventory():
     bot = _build_bot()
 
     with patch("TradingBot.TradingBot.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = "buy-order-id"
         mock_post.return_value = mock_response
 
         asyncio.run(bot.place_order("AAPL", "buy", 150.0, 2))
 
     state = bot.ticker_states["AAPL"]
-    assert state["inventory"] == 2
-    assert state["total_pnl"] == -300.0
-    assert len(state["trades"]) == 1
-    assert state["trades"][0]["side"] == "buy"
-    assert state["trades"][0]["price"] == 150.0
-    assert state["trades"][0]["volume"] == 2
+    assert state["inventory"] == 0
+    assert state["total_pnl"] == 0
+    assert state["trades"] == []
+    assert state["open_orders"]["buy"] == {
+        "buy-order-id": {"price": 150.0, "remaining_volume": 2}
+    }
 
 
-def test_place_order_sell_updates_inventory_and_trade_log():
+def test_place_order_sell_tracks_open_order_without_going_negative():
     bot = _build_bot()
 
     with patch("TradingBot.TradingBot.requests.post") as mock_post:
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.json.return_value = "sell-order-id"
         mock_post.return_value = mock_response
 
         asyncio.run(bot.place_order("AAPL", "sell", 151.0, 3))
 
     state = bot.ticker_states["AAPL"]
-    assert state["inventory"] == -3
-    assert state["total_pnl"] == 453.0
-    assert len(state["trades"]) == 1
-    assert state["trades"][0]["side"] == "sell"
-    assert state["trades"][0]["price"] == 151.0
-    assert state["trades"][0]["volume"] == 3
+    assert state["inventory"] == 0
+    assert state["total_pnl"] == 0
+    assert state["trades"] == []
+    assert state["open_orders"]["sell"] == {
+        "sell-order-id": {"price": 151.0, "remaining_volume": 3}
+    }
 
 
 def test_place_order_does_not_update_state_on_http_failure():
@@ -142,8 +175,9 @@ def test_place_order_can_execute_against_api_endpoint(api_client, monkeypatch):
     asyncio.run(bot.place_order("AAPL", "buy", 110.0, 2))
 
     state = bot.ticker_states["AAPL"]
-    assert state["inventory"] == 2
-    assert len(state["trades"]) == 1
+    assert state["inventory"] == 0
+    assert state["trades"] == []
+    assert len(state["open_orders"]["buy"]) == 1
 
     orderbook_response = api_client.get("/api/get_all_bids", params={"ticker": "AAPL"})
     assert orderbook_response.status_code == 200
