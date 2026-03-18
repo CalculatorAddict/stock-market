@@ -63,3 +63,21 @@ def test_portfolio_values_endpoint_rejects_invalid_window(api_client):
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Window must be a positive integer."
+
+
+def test_portfolio_values_endpoint_accepts_mixed_case_identity_headers(api_client):
+    sample_portfolio_values(datetime.now(timezone.utc))
+
+    response = api_client.get(
+        "/api/portfolio_values",
+        params={"window": DEFAULT_WINDOW_SECONDS},
+        headers={
+            "X-Actor-User": "AMoRgAn",
+            "X-Actor-Email": "Alex.Morgan@Demo.Local",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert isinstance(body, list)
+    assert len(body) >= 2

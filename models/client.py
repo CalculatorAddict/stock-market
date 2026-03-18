@@ -9,6 +9,10 @@ class Client:
     _clients_by_username: dict[str, Self] = {}
     _clients_by_email: dict[str, Self] = {}
 
+    @staticmethod
+    def _normalize_identity(value: str) -> str:
+        return value.strip().lower()
+
     def __init__(
         self,
         username: str,
@@ -19,7 +23,10 @@ class Client:
         balance: float = 0,
         portfolio: dict[str, float] = None,
     ):
-        if username in Client._clients_by_username:
+        normalized_username = Client._normalize_identity(username)
+        normalized_email = Client._normalize_identity(email)
+
+        if normalized_username in Client._clients_by_username:
             raise ValueError(f"Username {username} is not available")
 
         self.client_id = Client.counter
@@ -35,8 +42,8 @@ class Client:
         self.portfolio = portfolio if portfolio is not None else {}
 
         Client._all_clients[self.client_id] = self
-        Client._clients_by_username[self.username] = self
-        Client._clients_by_email[self.email] = self
+        Client._clients_by_username[normalized_username] = self
+        Client._clients_by_email[normalized_email] = self
 
     def __str__(self):
         return f"{self.first_names} {self.last_name} ({self.username})"
@@ -47,11 +54,15 @@ class Client:
 
     @classmethod
     def get_client_by_username(cls, username: str) -> Self:
-        return cls._clients_by_username.get(username)
+        if username is None:
+            return None
+        return cls._clients_by_username.get(cls._normalize_identity(username))
 
     @classmethod
     def get_client_by_email(cls, email: str) -> Self:
-        return cls._clients_by_email.get(email)
+        if email is None:
+            return None
+        return cls._clients_by_email.get(cls._normalize_identity(email))
 
     @classmethod
     def resolve(cls, client_info) -> Self:
