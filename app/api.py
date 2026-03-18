@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
 
 from database import Database
 import new_user_portfolio as new_user
@@ -760,6 +760,19 @@ async def get_client_info_token(
     }
 
 
+async def get_persistence_override_status(request: Request):
+    return {
+        "enabled": bool(
+            getattr(request.app.state, "persistence_override_enabled", False)
+        )
+    }
+
+
+async def set_persistence_override_status(request: Request, enabled: bool):
+    request.app.state.persistence_override_enabled = enabled
+    return {"enabled": enabled}
+
+
 def register_api_routes(app: FastAPI) -> None:
     app.post("/api/place_order", response_model=OrderIdResponse)(place_order)
     app.post("/api/market_order", response_model=OrderIdResponse)(market_order)
@@ -790,3 +803,5 @@ def register_api_routes(app: FastAPI) -> None:
     app.get("/api/client_info_token", response_model=ClientInfoTokenResponse)(
         get_client_info_token
     )
+    app.get("/api/persistence_override")(get_persistence_override_status)
+    app.post("/api/persistence_override")(set_persistence_override_status)

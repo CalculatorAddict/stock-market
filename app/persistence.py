@@ -1,3 +1,4 @@
+from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone
 
@@ -181,3 +182,18 @@ def persist_orderbook_state() -> None:
 
     connection.commit()
     connection.close()
+
+
+ORDERBOOK_STATE_TABLE = "orderbook_state"
+DATABASE_PATH = Path(__file__).resolve().parent.parent / "stock_market_database.db"
+
+
+def drop_orderbook_state_table(database_path: Path = DATABASE_PATH) -> None:
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(f"DROP TABLE IF EXISTS {ORDERBOOK_STATE_TABLE}")
+        connection.commit()
+
+
+def persistence_override() -> None:
+    drop_orderbook_state_table()
+    print(f"Dropped {ORDERBOOK_STATE_TABLE} from {DATABASE_PATH}")

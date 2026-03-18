@@ -10,7 +10,11 @@ from database import ensure_database_exists
 from app.websocket_routes import register_websocket_routes
 from app.api import register_api_routes
 from app.price_history import sample_portfolio_values, sample_prices
-from app.persistence import persist_orderbook_state, restore_orderbook_state
+from app.persistence import (
+    persist_orderbook_state,
+    restore_orderbook_state,
+    persistence_override,
+)
 from app.shared_constants import SEEDED_CLIENTS
 from engine.portfolio_value import PortfolioValue
 from engine.order_book import OrderBook
@@ -24,8 +28,9 @@ order_books = [OrderBook(ticker) for ticker in TICKERS]
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ensure_database_exists(seed_clients=SEEDED_CLIENTS)
-    # One-time recovery command if persisted orderbook rows ever block startup:
-    # uv run python scripts/persistence_override.py
+    if _app.state.persistence_override_enabled:
+        persistence_override()
+        _app.state.persistence_override_enabled = False
     restore_orderbook_state()
     sample_prices()
     sample_portfolio_values()
@@ -49,6 +54,7 @@ async def lifespan(_app: FastAPI):
 
 # Initialize the app
 app = FastAPI(title="Stock Market", lifespan=lifespan)
+app.state.persistence_override_enabled = False
 register_websocket_routes(app)
 register_api_routes(app)
 
