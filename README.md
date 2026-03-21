@@ -1,6 +1,8 @@
 # Stock Market Demo
 
-Local stock market simulation built with FastAPI, a browser frontend, and an in-memory matching engine backed by SQLite persistence. The project is set up for deterministic demos: seeded accounts, local websocket endpoints, and a smoke script that refuses to kill unrelated processes.
+Local stock market simulation built with FastAPI, a browser frontend, and an in-memory matching engine backed by SQLite persistence. This branch is set up for deterministic demos: seeded accounts, local websocket endpoints, and a smoke script that refuses to kill unrelated processes.
+
+Watch the demo video: [Stock Market Demo Walkthrough](https://youtu.be/Gm1TQWNxA6M?si=AV3VMxdKtbOB9PyI)
 
 ## What it does
 
@@ -10,6 +12,72 @@ Local stock market simulation built with FastAPI, a browser frontend, and an in-
 - Persists open limit orders across app restarts
 - Serves a browser demo UI from `/app`
 - Includes a pytest suite for unit, API, and integration coverage
+
+## System design
+
+```mermaid
+flowchart LR
+
+%% ---- Layers (horizontal) ----
+subgraph Clients
+  direction TB
+  GUI[GUI]
+  CLI[CLI]
+  BOT[Bot]
+end
+
+subgraph API
+  direction TB
+  REST[REST API]
+  WS[WebSockets]
+  AUTH[Google OAuth]
+end
+
+subgraph Core
+  direction TB
+  ME[Matching Engine]
+  OB[Order Book]
+  PV[Portfolio Value]
+end
+
+subgraph Models
+  direction TB
+  ORD[Order]
+  TX[Transaction]
+  CL[Client]
+end
+
+subgraph Persistence
+  direction TB
+  DB[(SQL Database)]
+end
+
+%% ---- Clients ↔ API ----
+GUI <--> WS
+BOT <--> WS
+GUI <--> REST
+CLI <--> REST
+GUI --> AUTH
+CLI --> AUTH
+
+%% ---- API → Core ----
+REST --> ME
+WS --> PV
+WS --> OB
+
+%% ---- Core ----
+ME --> OB
+
+%% ---- Core → Models ----
+ME --> CL
+ME --> TX
+OB --> TX
+OB --> ORD
+
+%% ---- Persistence ----
+REST --> DB
+ME --> DB
+```
 
 ## Stack
 
@@ -174,68 +242,4 @@ To run multiple seeded bot profiles:
 
 ```bash
 uv run python trading_bot/run_demo_bots.py --bot-count 2
-```
-
-```mermaid
-flowchart LR
-
-%% ---- Layers (horizontal) ----
-subgraph Clients
-  direction TB
-  GUI[GUI]
-  CLI[CLI]
-  BOT[Bot]
-end
-
-subgraph API
-  direction TB
-  REST[REST API]
-  WS[WebSockets]
-  AUTH[Google OAuth]
-end
-
-subgraph Core
-  direction TB
-  ME[Matching Engine]
-  OB[Order Book]
-  PV[Portfolio Value]
-end
-
-subgraph Models
-  direction TB
-  ORD[Order]
-  TX[Transaction]
-  CL[Client]
-end
-
-subgraph Persistence
-  direction TB
-  DB[(SQL Database)]
-end
-
-%% ---- Clients ↔ API ----
-GUI <--> WS
-BOT <--> WS
-GUI <--> REST
-CLI <--> REST
-GUI --> AUTH
-CLI --> AUTH
-
-%% ---- API → Core ----
-REST --> ME
-WS --> PV
-WS --> OB
-
-%% ---- Core ----
-ME --> OB
-
-%% ---- Core → Models ----
-ME --> CL
-ME --> TX
-OB --> TX
-OB --> ORD
-
-%% ---- Persistence ----
-REST --> DB
-ME --> DB
 ```
