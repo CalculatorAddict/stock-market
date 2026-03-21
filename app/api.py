@@ -144,7 +144,7 @@ def _resolve_authenticated_client(
     return client
 
 
-async def place_order(
+def place_order(
     order: PlaceOrderRequest,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -204,7 +204,7 @@ async def place_order(
         orderbook_error_to_http(e)
 
 
-async def market_order(
+def market_order(
     order: MarketOrderRequest,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -260,7 +260,7 @@ async def market_order(
         orderbook_error_to_http(e)
 
 
-async def cancel_order(
+def cancel_order(
     request: CancelOrderRequest,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -298,7 +298,7 @@ async def cancel_order(
     }
 
 
-async def edit_order(
+def edit_order(
     request: EditOrderRequest,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -349,7 +349,7 @@ async def edit_order(
     }
 
 
-async def get_best_bid(ticker: str):
+def get_best_bid(ticker: str):
     """
     Get the best bid for a stock.
 
@@ -365,7 +365,7 @@ async def get_best_bid(ticker: str):
     return OrderBook.get_best_bid(ticker)
 
 
-async def get_best_ask(ticker: str):
+def get_best_ask(ticker: str):
     """
     Get the best ask for a stock.
 
@@ -381,7 +381,7 @@ async def get_best_ask(ticker: str):
     return OrderBook.get_best_ask(ticker)
 
 
-async def get_best(ticker: str):
+def get_best(ticker: str):
     """
     Get the best bid and ask for a stock.
 
@@ -401,7 +401,7 @@ async def get_best(ticker: str):
     }
 
 
-async def get_volume_at_price(ticker: str, side: str, price: float):
+def get_volume_at_price(ticker: str, side: str, price: float):
     """
     Get the volume at a specific price for a stock.
 
@@ -420,7 +420,7 @@ async def get_volume_at_price(ticker: str, side: str, price: float):
     return OrderBook.get_volume_at_price(ticker, order_side, price)
 
 
-async def get_all_asks(ticker: str):
+def get_all_asks(ticker: str):
     """
     Get the full visible ask side of the book for a ticker.
 
@@ -447,7 +447,7 @@ async def get_all_asks(ticker: str):
     ]
 
 
-async def get_all_bids(ticker: str):
+def get_all_bids(ticker: str):
     """
     Get the full visible bid side of the book for a ticker.
 
@@ -474,7 +474,7 @@ async def get_all_bids(ticker: str):
     ]
 
 
-async def get_transactions(ticker: str, limit: int = 20):
+def get_transactions(ticker: str, limit: int = 20):
     """
     Get recent transactions for a stock.
 
@@ -518,7 +518,7 @@ async def get_transactions(ticker: str, limit: int = 20):
     return transactions
 
 
-async def get_prices(ticker: str, window: int = DEFAULT_WINDOW_SECONDS):
+def get_prices(ticker: str, window: int = DEFAULT_WINDOW_SECONDS):
     """
     Get recent sampled prices for a ticker.
 
@@ -539,7 +539,7 @@ async def get_prices(ticker: str, window: int = DEFAULT_WINDOW_SECONDS):
     return get_price_history(ticker, window)
 
 
-async def get_portfolio_values(
+def get_portfolio_values(
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
     window: int = DEFAULT_WINDOW_SECONDS,
@@ -563,7 +563,7 @@ async def get_portfolio_values(
     return get_portfolio_value_history(client, window)
 
 
-async def get_demo() -> dict:
+def get_demo() -> dict:
     demo_accounts = []
     for demo_client in DEMO_CLIENTS:
         username = demo_client.get("username")
@@ -584,7 +584,7 @@ async def get_demo() -> dict:
     }
 
 
-async def get_open_orders(
+def get_open_orders(
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
@@ -603,7 +603,7 @@ async def get_open_orders(
     return sorted(open_order_ids)
 
 
-async def get_order_status(
+def get_order_status(
     order_id: str | int,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -651,7 +651,7 @@ async def get_order_status(
     }
 
 
-async def get_client_by_email(
+def get_client_by_email(
     email: str,
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
@@ -675,7 +675,7 @@ async def get_client_by_email(
     return _serialize_public_client(client)
 
 
-async def add_new_client(
+def add_new_client(
     client_data: ClientData,
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
 ):
@@ -733,7 +733,7 @@ async def add_new_client(
         return _serialize_public_client(client)
 
 
-async def get_client_info_token(
+def get_client_info_token(
     email: str,
     x_actor_user: str | None = Header(default=None, alias=IDENTITY_HEADER_USER),
     x_actor_email: str | None = Header(default=None, alias=IDENTITY_HEADER_EMAIL),
@@ -760,7 +760,7 @@ async def get_client_info_token(
     }
 
 
-async def get_persistence_override_status(request: Request):
+def get_persistence_override_status(request: Request):
     return {
         "enabled": bool(
             getattr(request.app.state, "persistence_override_enabled", False)
@@ -768,7 +768,7 @@ async def get_persistence_override_status(request: Request):
     }
 
 
-async def set_persistence_override_status(request: Request, enabled: bool):
+def set_persistence_override_status(request: Request, enabled: bool):
     request.app.state.persistence_override_enabled = enabled
     return {"enabled": enabled}
 
